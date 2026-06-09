@@ -18,6 +18,10 @@ export interface IUserDocument extends Document {
   badges: string[];
   socialLinks?: { website?: string; twitter?: string; linkedin?: string };
   expertise?: string[];
+  // Teacher verification: profile completeness + admin review.
+  verificationStatus: "incomplete" | "pending" | "approved" | "rejected";
+  verificationDocuments: { name: string; url: string; type: string; uploadedAt: Date }[];
+  rejectionReason?: string;
   resetPasswordToken?: string;
   resetPasswordExpiry?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -45,6 +49,20 @@ const UserSchema = new Schema<IUserDocument>(
       linkedin: String,
     },
     expertise: [{ type: String }],
+    verificationStatus: {
+      type: String,
+      enum: ["incomplete", "pending", "approved", "rejected"],
+      default: "incomplete",
+    },
+    verificationDocuments: [
+      {
+        name: { type: String },
+        url: { type: String },
+        type: { type: String },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+    rejectionReason: { type: String, default: "" },
     resetPasswordToken: { type: String, select: false },
     resetPasswordExpiry: { type: Date, select: false },
   },

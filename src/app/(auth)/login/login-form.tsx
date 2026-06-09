@@ -26,7 +26,7 @@ export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setUser } = useAuthStore();
-  const from = searchParams.get("from") || "/dashboard";
+  const from = searchParams.get("from") || "/profile";
 
   const {
     register,
@@ -55,7 +55,7 @@ export default function LoginForm() {
       const role = json.data.user.role;
       if (role === "admin") router.push("/admin");
       else if (role === "teacher") router.push("/teacher");
-      else router.push(from);
+      else router.push(from === "/dashboard" ? "/profile" : from);
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {

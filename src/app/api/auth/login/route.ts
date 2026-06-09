@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
           avatar: user.avatar,
           xp: user.xp,
           level: user.level,
+          isApproved: user.isApproved,
         },
       },
       message: "Logged in successfully",

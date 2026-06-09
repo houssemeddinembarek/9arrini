@@ -11,6 +11,7 @@ interface User {
   avatar?: string;
   xp?: number;
   level?: number;
+  isApproved?: boolean;
 }
 
 interface AuthState {

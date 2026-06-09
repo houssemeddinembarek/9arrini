@@ -77,7 +77,7 @@ export default function RegisterPage() {
 
       const role = json.data.user.role;
       if (role === "teacher") router.push("/teacher");
-      else router.push("/dashboard");
+      else router.push("/profile");
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
