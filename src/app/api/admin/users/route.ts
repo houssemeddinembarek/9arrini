@@ -16,9 +16,12 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const role = searchParams.get("role");
     const search = searchParams.get("search");
+    const approved = searchParams.get("approved");
 
     const query: Record<string, unknown> = {};
     if (role) query.role = role;
+    if (approved === "true") query.isApproved = true;
+    if (approved === "false") query.isApproved = false;
     if (search) query.$or = [{ name: new RegExp(search, "i") }, { email: new RegExp(search, "i") }];
 
     const [users, total] = await Promise.all([

@@ -19,6 +19,7 @@ export async function GET() {
       totalUsers,
       totalStudents,
       totalTeachers,
+      pendingTeachers,
       totalCourses,
       publishedCourses,
       totalEnrollments,
@@ -27,6 +28,7 @@ export async function GET() {
       User.countDocuments(),
       User.countDocuments({ role: "student" }),
       User.countDocuments({ role: "teacher" }),
+      User.countDocuments({ role: "teacher", isApproved: false }),
       Course.countDocuments(),
       Course.countDocuments({ status: "published" }),
       Enrollment.countDocuments(),
@@ -34,9 +36,15 @@ export async function GET() {
     ]);
 
     const recentUsers = await User.find()
-      .select("name email role createdAt avatar")
+      .select("name email role isApproved createdAt avatar")
       .sort({ createdAt: -1 })
       .limit(5)
+      .lean();
+
+    const pendingApprovals = await User.find({ role: "teacher", isApproved: false })
+      .select("name email expertise createdAt avatar")
+      .sort({ createdAt: -1 })
+      .limit(10)
       .lean();
 
     const topCourses = await Course.find({ status: "published" })
@@ -52,12 +60,14 @@ export async function GET() {
           totalUsers,
           totalStudents,
           totalTeachers,
+          pendingTeachers,
           totalCourses,
           publishedCourses,
           totalEnrollments,
           totalBookings,
         },
         recentUsers,
+        pendingApprovals,
         topCourses,
       },
     });
