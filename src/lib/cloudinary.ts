@@ -51,6 +51,44 @@ export async function uploadToCloudinary(
   return { url: data.secure_url, publicId: data.public_id };
 }
 
+export async function uploadImageToCloudinary(
+  buffer: Buffer,
+  filename: string,
+  mimeType: string,
+  folder = "skillora/avatars"
+): Promise<{ url: string; publicId: string }> {
+  const { cloudName, apiKey, apiSecret } = envCreds();
+
+  const timestamp = String(Math.round(Date.now() / 1000));
+  const safeName = filename.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const publicId = `${folder}/${safeName}_${timestamp}`;
+
+  const paramsToSign: Record<string, string> = { folder, public_id: publicId, timestamp };
+  const signature = sign(paramsToSign, apiSecret);
+
+  const form = new FormData();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form.append("file", new Blob([buffer as any], { type: mimeType }), filename);
+  form.append("api_key", apiKey);
+  form.append("timestamp", timestamp);
+  form.append("signature", signature);
+  form.append("folder", folder);
+  form.append("public_id", publicId);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Cloudinary image upload failed: ${err}`);
+  }
+
+  const data = await res.json();
+  return { url: data.secure_url, publicId: data.public_id };
+}
+
 export async function uploadVideoToCloudinary(
   buffer: Buffer,
   filename: string,
