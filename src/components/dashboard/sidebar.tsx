@@ -4,9 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BookOpen, LayoutDashboard, GraduationCap, Users, Settings, Bell,
-  BarChart2, MessageSquare, BookMarked, Calendar, Award, Brain,
-  PlusCircle, Video, FileText, ChevronLeft, ChevronRight, LogOut, Shield, Sparkles,
+  BookOpen, LayoutDashboard, GraduationCap, Users, Settings,
+  BarChart2, MessageSquare, Calendar, Brain,
+  PlusCircle, Video, FileText, ChevronLeft, ChevronRight, LogOut, Sparkles,
   UsersRound,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,17 +25,12 @@ interface NavItem {
   section?: string;
 }
 
+// Students have no dashboard — their hub is the profile screen.
 const STUDENT_NAV: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Profile", href: "/profile", icon: LayoutDashboard },
   { label: "My Courses", href: "/dashboard/my-courses", icon: BookOpen },
-  { label: "Continue Learning", href: "/dashboard/continue", icon: Video },
-  { label: "AI Assistant", href: "/ai-assistant", icon: Brain },
-  { label: "Quizzes", href: "/dashboard/quizzes", icon: GraduationCap },
   { label: "Tutoring", href: "/dashboard/tutoring", icon: Calendar },
-  { label: "Certificates", href: "/dashboard/certificates", icon: Award },
-  { label: "Bookmarks", href: "/dashboard/bookmarks", icon: BookMarked },
-  { label: "Messages", href: "/dashboard/messages", icon: MessageSquare },
-  { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
+  { label: "AI Assistant", href: "/ai-assistant", icon: Brain },
   { label: "Settings", href: "/profile/settings", icon: Settings },
 ];
 
@@ -46,7 +41,7 @@ const TEACHER_NAV: NavItem[] = [
   { label: "Generate Content", href: "/teacher/generate-content", icon: Sparkles },
   { label: "Content Library", href: "/teacher/content", icon: FileText },
   { label: "Lessons", href: "/teacher/lessons", icon: Video },
-  { label: "AI Assistant", href: "/ai-assistant", icon: Brain },
+  { label: "AI Assistant", href: "/teacher/ai-assistant", icon: Brain },
   { label: "Quizzes", href: "/teacher/quizzes", icon: GraduationCap },
   { label: "Groups", href: "/teacher/groups", icon: UsersRound },
   { label: "Calendar", href: "/teacher/calendar", icon: Calendar },
@@ -54,14 +49,14 @@ const TEACHER_NAV: NavItem[] = [
   { label: "Students", href: "/teacher/students", icon: Users },
   { label: "Analytics", href: "/teacher/analytics", icon: BarChart2 },
   { label: "Messages", href: "/teacher/messages", icon: MessageSquare },
-  { label: "Settings", href: "/profile/settings", icon: Settings },
+  { label: "Settings", href: "/teacher/settings", icon: Settings },
 ];
 
 const ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Users", href: "/admin/users", icon: Users },
   { label: "Courses", href: "/admin/courses", icon: BookOpen },
-  { label: "AI Assistant", href: "/ai-assistant", icon: Brain },
+  { label: "AI Assistant", href: "/admin/ai-assistant", icon: Brain },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart2 },
   { label: "Reports", href: "/admin/reports", icon: FileText },
   { label: "Settings", href: "/admin/settings", icon: Settings },
@@ -79,7 +74,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
   const navItems = role === "admin" ? ADMIN_NAV : role === "teacher" ? TEACHER_NAV : STUDENT_NAV;
 
   const isActive = (href: string) => {
-    if (href === "/dashboard" || href === "/teacher" || href === "/admin") {
+    if (["/profile", "/teacher", "/admin"].includes(href)) {
       return pathname === href;
     }
     return pathname.startsWith(href);
