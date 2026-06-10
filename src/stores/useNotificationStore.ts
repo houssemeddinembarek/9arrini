@@ -11,9 +11,19 @@ interface Notification {
   createdAt: string;
 }
 
+interface ServerNotification {
+  _id: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  isRead: boolean;
+  createdAt: string;
+}
+
 interface NotificationState {
   notifications: Notification[];
   unreadCount: number;
+  setNotifications: (items: ServerNotification[]) => void;
   addNotification: (n: Omit<Notification, "id" | "isRead" | "createdAt">) => void;
   markAsRead: (id: string) => void;
   markAllRead: () => void;
@@ -23,6 +33,18 @@ interface NotificationState {
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
   unreadCount: 0,
+  setNotifications: (items) =>
+    set({
+      notifications: items.map((i) => ({
+        id: i._id,
+        title: i.title,
+        message: i.message,
+        type: i.type,
+        isRead: i.isRead,
+        createdAt: i.createdAt,
+      })),
+      unreadCount: items.filter((i) => !i.isRead).length,
+    }),
   addNotification: (n) =>
     set((state) => {
       const notification: Notification = {
