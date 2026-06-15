@@ -4,12 +4,22 @@ import { signToken } from "@/lib/jwt";
 import User from "@/models/User";
 import { z } from "zod";
 
-const registerSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["student", "teacher"]).default("student"),
-});
+const registerSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    role: z.enum(["student", "teacher"]).default("student"),
+    // Student schooling details.
+    stage: z.string().optional(),
+    year: z.string().optional(),
+    section: z.string().optional(),
+    governorate: z.string().optional(),
+  })
+  .refine(
+    (d) => d.role !== "student" || (!!d.stage && !!d.year && !!d.governorate),
+    { message: "Niveau, année et gouvernorat sont requis", path: ["stage"] }
+  );
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, password, role } = parsed.data;
+    const { name, email, password, role, stage, year, section, governorate } = parsed.data;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -40,6 +50,10 @@ export async function POST(request: NextRequest) {
       password,
       role,
       isApproved: role === "student" ? true : false,
+      studentProfile:
+        role === "student"
+          ? { stage, year, section: section || "", governorate }
+          : undefined,
     });
 
     const token = signToken({

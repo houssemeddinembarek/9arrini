@@ -32,6 +32,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Social accounts (Google/Facebook) have no password — guide them to that flow.
+    if (!user.password) {
+      const how = user.provider === "facebook" ? "Facebook" : "Google";
+      return NextResponse.json(
+        { success: false, error: `This account uses ${how} sign-in. Please continue with ${how}.` },
+        { status: 400 }
+      );
+    }
+
     const isValid = await user.comparePassword(password);
     if (!isValid) {
       return NextResponse.json(
