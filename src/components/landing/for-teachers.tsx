@@ -1,30 +1,22 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   GraduationCap, Users, Calendar, FileText, Sparkles,
   TrendingUp, BookOpen, Brain, ArrowRight, CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/context";
 
-const STUDENT_BENEFITS = [
-  { icon: Users, text: "Cours en petits groupes (3–8 élèves)" },
-  { icon: Brain, text: "Assistant IA Aria 24h/24" },
-  { icon: Calendar, text: "Calendrier et rappels automatiques" },
-  { icon: BookOpen, text: "Accès aux résumés et exercices du prof" },
-  { icon: TrendingUp, text: "Suivi de progression personnalisé" },
-];
-
-const TEACHER_BENEFITS = [
-  { icon: Users, text: "Créez et gérez vos groupes d'élèves" },
-  { icon: Calendar, text: "Planifiez vos réunions facilement" },
-  { icon: Sparkles, text: "Générez du contenu en LaTeX avec l'IA" },
-  { icon: FileText, text: "Bibliothèque de contenu illimitée" },
-  { icon: GraduationCap, text: "Demandez vos propres formations" },
-];
+// Icons for each benefit; the labels come from the dictionary by index.
+const STUDENT_ICONS = [Users, Brain, Calendar, BookOpen, TrendingUp];
+const TEACHER_ICONS = [Users, Calendar, Sparkles, FileText, GraduationCap];
 
 export function ForTeachersAndStudents() {
   const router = useRouter();
+  const { dict } = useI18n();
+  const t = dict.forTeachers;
 
   return (
     <section className="py-24 bg-[hsl(var(--muted))]/30">
@@ -32,13 +24,13 @@ export function ForTeachersAndStudents() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] text-sm font-medium mb-4">
             <Users className="h-4 w-4" />
-            Pour tous
+            {t.badge}
           </div>
           <h2 className="text-4xl sm:text-5xl font-bold mb-4">
-            Étudiants et profs : <span className="gradient-text">tout le monde gagne</span>
+            {t.titleBefore} <span className="gradient-text">{t.titleHighlight}</span>
           </h2>
           <p className="text-xl text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto">
-            Que vous appreniez ou enseigniez, 9arrini Academy s&apos;adapte à vous.
+            {t.subtitle}
           </p>
         </div>
 
@@ -48,27 +40,39 @@ export function ForTeachersAndStudents() {
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-purple-500/20 to-pink-500/10 rounded-full blur-3xl" />
 
             <div className="relative">
+              {/* Happy students photo */}
+              <div className="relative -mt-8 -mx-8 mb-6 h-40 overflow-hidden">
+                <Image
+                  src="/decoration/students-celebrate.jpeg"
+                  alt="Des élèves heureux en classe"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover object-center"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[hsl(var(--card))] via-[hsl(var(--card))]/20 to-transparent" />
+              </div>
+
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-2xl gradient-bg flex items-center justify-center shadow-lg">
                   <GraduationCap className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Pour les étudiants</p>
-                  <h3 className="text-2xl font-bold">Apprenez plus vite</h3>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">{t.student.label}</p>
+                  <h3 className="text-2xl font-bold">{t.student.title}</h3>
                 </div>
               </div>
 
               <p className="text-[hsl(var(--muted-foreground))] mb-6">
-                Rejoignez un groupe avec un prof expert et progressez à votre rythme grâce à l&apos;IA et au support de votre groupe.
+                {t.student.intro}
               </p>
 
               <ul className="space-y-3 mb-8">
-                {STUDENT_BENEFITS.map(({ icon: Icon, text }) => (
-                  <li key={text} className="flex items-start gap-3 text-sm">
+                {STUDENT_ICONS.map((Icon, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-sm">
                     <div className="w-6 h-6 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center shrink-0 mt-0.5">
                       <Icon className="h-3.5 w-3.5 text-[hsl(var(--primary))]" />
                     </div>
-                    <span>{text}</span>
+                    <span>{t.student.benefits[idx]}</span>
                   </li>
                 ))}
               </ul>
@@ -78,7 +82,7 @@ export function ForTeachersAndStudents() {
                 className="w-full"
                 onClick={() => router.push("/register?role=student")}
               >
-                Commencer à apprendre <ArrowRight className="h-4 w-4" />
+                {t.student.cta} <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -93,22 +97,22 @@ export function ForTeachersAndStudents() {
                   <Users className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm text-[hsl(var(--muted-foreground))]">Pour les professeurs</p>
-                  <h3 className="text-2xl font-bold">Enseignez plus efficacement</h3>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">{t.teacher.label}</p>
+                  <h3 className="text-2xl font-bold">{t.teacher.title}</h3>
                 </div>
               </div>
 
               <p className="text-[hsl(var(--muted-foreground))] mb-6">
-                Créez vos groupes d&apos;élèves, planifiez vos séances et générez votre contenu pédagogique en quelques clics.
+                {t.teacher.intro}
               </p>
 
               <ul className="space-y-3 mb-6">
-                {TEACHER_BENEFITS.map(({ icon: Icon, text }) => (
-                  <li key={text} className="flex items-start gap-3 text-sm">
+                {TEACHER_ICONS.map((Icon, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-sm">
                     <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
                       <Icon className="h-3.5 w-3.5 text-blue-500" />
                     </div>
-                    <span>{text}</span>
+                    <span>{t.teacher.benefits[idx]}</span>
                   </li>
                 ))}
               </ul>
@@ -117,7 +121,7 @@ export function ForTeachersAndStudents() {
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                    <strong className="text-blue-600 dark:text-blue-400">Nouveau :</strong> Vous pouvez maintenant demander vos propres formations directement depuis votre tableau de bord prof.
+                    <strong className="text-blue-600 dark:text-blue-400">{t.teacher.newLabel}</strong> {t.teacher.newText}
                   </p>
                 </div>
               </div>
@@ -127,7 +131,7 @@ export function ForTeachersAndStudents() {
                 className="w-full"
                 onClick={() => router.push("/register?role=teacher")}
               >
-                Devenir professeur <ArrowRight className="h-4 w-4" />
+                {t.teacher.cta} <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </div>

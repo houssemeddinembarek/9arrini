@@ -6,56 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { getInitials } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/context";
 
+// People data (names, avatars, stats); specialty/level/bio are translated and
+// resolved from the dictionary by index.
 const TEACHERS = [
-  {
-    id: "1",
-    name: "Sami Ben Salah",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&q=80",
-    specialty: "Mathématiques",
-    level: "Bac Math",
-    rating: 4.9,
-    students: 240,
-    groups: 8,
-    bio: "Professeur agrégé de mathématiques. 15 ans d'expérience préparant les élèves au Bac scientifique.",
-  },
-  {
-    id: "2",
-    name: "Leila Trabelsi",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80",
-    specialty: "Physique-Chimie",
-    level: "Lycée",
-    rating: 4.8,
-    students: 180,
-    groups: 6,
-    bio: "Ingénieure et enseignante. Ses élèves obtiennent en moyenne +4 points au Bac sciences.",
-  },
-  {
-    id: "3",
-    name: "Karim Mzali",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&q=80",
-    specialty: "Français & Philosophie",
-    level: "Bac Lettres",
-    rating: 4.9,
-    students: 210,
-    groups: 7,
-    bio: "Agrégé de Lettres modernes. Spécialiste de la dissertation et de l'explication de texte.",
-  },
-  {
-    id: "4",
-    name: "Ines Bouaziz",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&q=80",
-    specialty: "Anglais",
-    level: "Tous niveaux",
-    rating: 4.7,
-    students: 320,
-    groups: 12,
-    bio: "Diplômée de Cambridge. Méthode immersive pour passer du niveau A2 au C1 en un an.",
-  },
+  { id: "1", name: "Sami Ben Salah", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&q=80", rating: 4.9, students: 240, groups: 8 },
+  { id: "2", name: "Leila Trabelsi", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80", rating: 4.8, students: 180, groups: 6 },
+  { id: "3", name: "Karim Mzali", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&q=80", rating: 4.9, students: 210, groups: 7 },
+  { id: "4", name: "Ines Bouaziz", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&q=80", rating: 4.7, students: 320, groups: 12 },
 ];
 
 export function TopTeachers() {
   const router = useRouter();
+  const { dict } = useI18n();
+  const t = dict.topTeachers;
 
   return (
     <section className="py-24">
@@ -63,18 +28,18 @@ export function TopTeachers() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] text-sm font-medium mb-4">
             <Star className="h-4 w-4" />
-            Professeurs vérifiés
+            {t.badge}
           </div>
           <h2 className="text-4xl sm:text-5xl font-bold mb-4">
-            Apprenez avec les <span className="gradient-text">meilleurs profs tunisiens</span>
+            {t.titleBefore} <span className="gradient-text">{t.titleHighlight}</span>
           </h2>
           <p className="text-[hsl(var(--muted-foreground))] max-w-xl mx-auto">
-            Tous nos professeurs sont vérifiés et notés par leurs élèves. Choisissez celui qui vous correspond.
+            {t.subtitle}
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {TEACHERS.map((teacher) => (
+          {TEACHERS.map((teacher, idx) => (
             <div
               key={teacher.id}
               className="group p-6 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-center hover:shadow-xl hover:border-[hsl(var(--primary))]/30 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
@@ -87,10 +52,10 @@ export function TopTeachers() {
                 </AvatarFallback>
               </Avatar>
               <h3 className="font-semibold text-lg mb-1">{teacher.name}</h3>
-              <Badge variant="purple" className="mb-1">{teacher.specialty}</Badge>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2">{teacher.level}</p>
+              <Badge variant="purple" className="mb-1">{t.list[idx].specialty}</Badge>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2">{t.list[idx].level}</p>
               <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-3 mb-4">
-                {teacher.bio}
+                {t.list[idx].bio}
               </p>
               <div className="flex items-center justify-around text-sm border-t border-[hsl(var(--border))] pt-4">
                 <div className="flex flex-col items-center">
@@ -98,21 +63,21 @@ export function TopTeachers() {
                     <Star className="h-3.5 w-3.5 fill-current" />
                     <span className="font-semibold">{teacher.rating}</span>
                   </div>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Note</span>
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.rating}</span>
                 </div>
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5 text-blue-500" />
                     <span className="font-semibold">{teacher.students}</span>
                   </div>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Élèves</span>
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.students}</span>
                 </div>
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-1">
                     <BookOpen className="h-3.5 w-3.5 text-green-500" />
                     <span className="font-semibold">{teacher.groups}</span>
                   </div>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">Groupes</span>
+                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.groups}</span>
                 </div>
               </div>
             </div>
@@ -121,7 +86,7 @@ export function TopTeachers() {
 
         <div className="text-center">
           <Button variant="outline" onClick={() => router.push("/tutoring")}>
-            Voir tous les profs <ArrowRight className="h-4 w-4 ml-1" />
+            {t.viewAll} <ArrowRight className="h-4 w-4 ml-1" />
           </Button>
         </div>
       </div>

@@ -1,42 +1,65 @@
+"use client";
+
 import Link from "next/link";
 import { BookOpen, AtSign, Code2, Link2, Play, Mail } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
-const FOOTER_LINKS = {
-  Plateforme: [
-    { label: "Trouver un prof", href: "/tutoring" },
-    { label: "Assistant IA", href: "/ai-assistant" },
-    { label: "Devenir prof", href: "/register?role=teacher" },
-    { label: "Tarifs", href: "/#pricing" },
-  ],
-  Société: [
-    { label: "À propos", href: "/about" },
-    { label: "Blog", href: "/blog" },
-    { label: "Carrières", href: "/careers" },
-    { label: "Contact", href: "/contact" },
-  ],
-  Ressources: [
-    { label: "Centre d'aide", href: "/help" },
-    { label: "Communauté", href: "/community" },
-    { label: "Devenir professeur", href: "/teach" },
-    { label: "Programme officiel", href: "/curriculum" },
-  ],
-  Légal: [
-    { label: "Confidentialité", href: "/privacy" },
-    { label: "Conditions d'utilisation", href: "/terms" },
-    { label: "Cookies", href: "/cookies" },
-    { label: "RGPD", href: "/gdpr" },
-  ],
-};
+type ColumnKey = keyof Dictionary["footer"]["columns"];
+type LinkKey = keyof Dictionary["footer"]["links"];
+
+// Footer columns reference dictionary keys; labels resolve at render time.
+const FOOTER_COLUMNS: { column: ColumnKey; links: { key: LinkKey; href: string }[] }[] = [
+  {
+    column: "platform",
+    links: [
+      { key: "findTeacher", href: "/tutoring" },
+      { key: "aiAssistant", href: "/ai-assistant" },
+      { key: "becomeTeacher", href: "/register?role=teacher" },
+      { key: "pricing", href: "/#pricing" },
+    ],
+  },
+  {
+    column: "company",
+    links: [
+      { key: "about", href: "/about" },
+      { key: "blog", href: "/blog" },
+      { key: "careers", href: "/careers" },
+      { key: "contact", href: "/contact" },
+    ],
+  },
+  {
+    column: "resources",
+    links: [
+      { key: "help", href: "/help" },
+      { key: "community", href: "/community" },
+      { key: "teach", href: "/teach" },
+      { key: "curriculum", href: "/curriculum" },
+    ],
+  },
+  {
+    column: "legal",
+    links: [
+      { key: "privacy", href: "/privacy" },
+      { key: "terms", href: "/terms" },
+      { key: "cookies", href: "/cookies" },
+      { key: "gdpr", href: "/gdpr" },
+    ],
+  },
+];
 
 const SOCIAL_LINKS = [
   { icon: AtSign, href: "#", label: "Twitter" },
   { icon: Code2, href: "#", label: "GitHub" },
   { icon: Link2, href: "#", label: "LinkedIn" },
   { icon: Play, href: "#", label: "YouTube" },
-  { icon: Mail, href: "mailto:contact@9arrini.tn", label: "Email" },
+  { icon: Mail, href: "mailto:contact@telmidhi.tn", label: "Email" },
 ];
 
 export function Footer() {
+  const { dict } = useI18n();
+  const t = dict.footer;
+
   return (
     <footer className="bg-[hsl(var(--muted))]/30 border-t border-[hsl(var(--border))]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -47,10 +70,10 @@ export function Footer() {
               <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center">
                 <BookOpen className="h-4 w-4 text-white" />
               </div>
-              <span className="gradient-text">9arrini Academy</span>
+              <span className="gradient-text">Telmidhi</span>
             </Link>
             <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6 leading-relaxed">
-              La plateforme tunisienne qui réunit profs et IA pour des cours particuliers en petits groupes.
+              {t.tagline}
             </p>
             <div className="flex gap-3">
               {SOCIAL_LINKS.map(({ icon: Icon, href, label }) => (
@@ -67,17 +90,17 @@ export function Footer() {
           </div>
 
           {/* Links */}
-          {Object.entries(FOOTER_LINKS).map(([category, links]) => (
-            <div key={category}>
-              <h4 className="font-semibold text-sm mb-4">{category}</h4>
+          {FOOTER_COLUMNS.map(({ column, links }) => (
+            <div key={column}>
+              <h4 className="font-semibold text-sm mb-4">{t.columns[column]}</h4>
               <ul className="space-y-3">
-                {links.map(({ label, href }) => (
-                  <li key={label}>
+                {links.map(({ key, href }) => (
+                  <li key={key}>
                     <Link
                       href={href}
                       className="text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
                     >
-                      {label}
+                      {t.links[key]}
                     </Link>
                   </li>
                 ))}
@@ -89,12 +112,12 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-[hsl(var(--border))] flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            © {new Date().getFullYear()} 9arrini Academy. Tous droits réservés.
+            © {new Date().getFullYear()} Telmidhi. {t.rights}
           </p>
           <div className="flex items-center gap-1 text-sm text-[hsl(var(--muted-foreground))]">
-            Fait avec
+            {t.madeWith}
             <span className="text-red-500 mx-1">♥</span>
-            en Tunisie 🇹🇳
+            {t.inTunisia}
           </div>
         </div>
       </div>

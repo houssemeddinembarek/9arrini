@@ -15,6 +15,8 @@ interface CourseCardProps {
     shortDescription: string;
     thumbnail: string;
     category: string;
+    classe?: string;
+    trimestre?: string;
     level: string;
     price: number;
     isFree: boolean;
@@ -67,9 +69,21 @@ export function CourseCard({ course }: CourseCardProps) {
 
         {/* Content */}
         <div className="p-5 flex flex-col flex-1">
-          <Badge variant="secondary" className="w-fit text-xs mb-2 capitalize">
-            {course.category}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <Badge variant="secondary" className="w-fit text-xs capitalize">
+              {course.category}
+            </Badge>
+            {course.classe && (
+              <Badge variant="outline" className="w-fit text-xs">
+                {course.classe}
+              </Badge>
+            )}
+            {course.trimestre && (
+              <Badge variant="outline" className="w-fit text-xs">
+                {course.trimestre}
+              </Badge>
+            )}
+          </div>
 
           <h3 className="font-semibold text-[hsl(var(--foreground))] line-clamp-2 mb-2 group-hover:text-[hsl(var(--primary))] transition-colors leading-snug">
             {course.title}

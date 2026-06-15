@@ -11,15 +11,19 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { getInitials, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useNotificationStore } from "@/stores/useNotificationStore";
+import { useI18n } from "@/lib/i18n/context";
 
-const NAV_LINKS = [
-  { label: "Profs", href: "/tutoring", icon: Users },
-  { label: "Cours", href: "/courses", icon: BookOpen },
-  { label: "Assistant IA", href: "/ai-assistant", icon: Sparkles },
+type NavKey = "profs" | "cours" | "assistantIA";
+
+const NAV_LINKS: { key: NavKey; href: string; icon: typeof Users }[] = [
+  { key: "profs", href: "/tutoring", icon: Users },
+  { key: "cours", href: "/courses", icon: BookOpen },
+  { key: "assistantIA", href: "/ai-assistant", icon: Sparkles },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -31,7 +35,8 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { user, logout } = useAuthStore();
-  const { unreadCount } = useNotificationStore();
+  const { unreadCount, setNotifications } = useNotificationStore();
+  const { dict } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -41,14 +46,29 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Sync notifications from the server whenever the user or route changes.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    fetch("/api/notifications")
+      .then((r) => r.json())
+      .then((j) => {
+        if (active && j.success) setNotifications(j.data.items);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user, pathname, setNotifications]);
+
   // Close mobile menu on route change
   useEffect(() => { setIsOpen(false); }, [pathname]);
 
+  // Students have no separate dashboard — their hub is the profile screen.
   const getDashboardLink = () => {
-    if (!user) return "/dashboard";
-    if (user.role === "admin") return "/admin";
-    if (user.role === "teacher") return "/teacher";
-    return "/dashboard";
+    if (user?.role === "admin") return "/admin";
+    if (user?.role === "teacher") return "/teacher";
+    return "/profile";
   };
 
   const isHome = pathname === "/";
@@ -70,7 +90,7 @@ export function Navbar() {
             <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center shadow-lg group-hover:shadow-purple-500/25 transition-shadow">
               <BookOpen className="h-4 w-4 text-white" />
             </div>
-            <span className="gradient-text">9arrini Academy</span>
+            <span className="gradient-text">Telmidhi</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -88,7 +108,7 @@ export function Navbar() {
                       : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))]"
                   )}
                 >
-                  {link.label}
+                  {dict.nav[link.key]}
                   {active && <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--primary))] ml-0.5" />}
                 </Link>
               );
@@ -97,6 +117,7 @@ export function Navbar() {
 
           {/* Right Actions */}
           <div className="flex items-center gap-1.5">
+            <LanguageSwitcher />
             <ThemeToggle />
 
             {user ? (
@@ -141,26 +162,28 @@ export function Navbar() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => router.push(getDashboardLink())}>
-                      <GraduationCap className="h-4 w-4 mr-2" /> Dashboard
-                    </DropdownMenuItem>
+                    {user.role !== "student" && (
+                      <DropdownMenuItem onClick={() => router.push(getDashboardLink())}>
+                        <GraduationCap className="h-4 w-4 mr-2" /> {dict.nav.dashboard}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => router.push("/profile")}>
                       <Avatar className="h-4 w-4 mr-2">
                         <AvatarFallback className="gradient-bg text-white text-[8px]">{getInitials(user.name)}</AvatarFallback>
                       </Avatar>
-                      Profile
+                      {dict.nav.profile}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="text-red-500 focus:text-red-500" onClick={() => logout()}>
-                      Sign out
+                      {dict.nav.signOut}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
             ) : (
               <div className="hidden md:flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => router.push("/login")}>Sign in</Button>
-                <Button size="sm" variant="gradient" onClick={() => router.push("/register")}>Get Started</Button>
+                <Button variant="ghost" size="sm" onClick={() => router.push("/login")}>{dict.nav.signIn}</Button>
+                <Button size="sm" variant="gradient" onClick={() => router.push("/register")}>{dict.nav.getStarted}</Button>
               </div>
             )}
 
@@ -191,7 +214,7 @@ export function Navbar() {
                   )}
                 >
                   <Icon className="h-4 w-4" />
-                  {link.label}
+                  {dict.nav[link.key]}
                 </Link>
               );
             })}
@@ -209,14 +232,14 @@ export function Navbar() {
                     </div>
                   </div>
                   <Button className="w-full" variant="outline" onClick={() => router.push(getDashboardLink())}>
-                    <GraduationCap className="h-4 w-4 mr-2" /> Dashboard
+                    <GraduationCap className="h-4 w-4 mr-2" /> {user.role === "student" ? dict.nav.profile : dict.nav.dashboard}
                   </Button>
-                  <Button className="w-full" variant="destructive" onClick={() => logout()}>Sign out</Button>
+                  <Button className="w-full" variant="destructive" onClick={() => logout()}>{dict.nav.signOut}</Button>
                 </>
               ) : (
                 <div className="flex gap-2">
-                  <Button className="flex-1" variant="outline" onClick={() => router.push("/login")}>Sign in</Button>
-                  <Button className="flex-1" variant="gradient" onClick={() => router.push("/register")}>Get Started</Button>
+                  <Button className="flex-1" variant="outline" onClick={() => router.push("/login")}>{dict.nav.signIn}</Button>
+                  <Button className="flex-1" variant="gradient" onClick={() => router.push("/register")}>{dict.nav.getStarted}</Button>
                 </div>
               )}
             </div>

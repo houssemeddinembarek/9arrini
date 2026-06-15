@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen, LayoutDashboard, GraduationCap, Users, Settings,
   BarChart2, MessageSquare, Calendar, Brain,
-  PlusCircle, Video, FileText, ChevronLeft, ChevronRight, LogOut, Sparkles,
+  Video, FileText, ChevronLeft, ChevronRight, LogOut, Sparkles,
   UsersRound,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,6 +29,8 @@ interface NavItem {
 const STUDENT_NAV: NavItem[] = [
   { label: "Profile", href: "/profile", icon: LayoutDashboard },
   { label: "My Courses", href: "/dashboard/my-courses", icon: BookOpen },
+  { label: "Classes", href: "/dashboard/classes", icon: GraduationCap },
+  { label: "Meetings", href: "/dashboard/meetings", icon: Video },
   { label: "Tutoring", href: "/dashboard/tutoring", icon: Calendar },
   { label: "AI Assistant", href: "/ai-assistant", icon: Brain },
   { label: "Settings", href: "/profile/settings", icon: Settings },
@@ -37,13 +39,13 @@ const STUDENT_NAV: NavItem[] = [
 const TEACHER_NAV: NavItem[] = [
   { label: "Dashboard", href: "/teacher", icon: LayoutDashboard },
   { label: "My Courses", href: "/teacher/courses", icon: BookOpen },
-  { label: "Create Course", href: "/teacher/courses/create", icon: PlusCircle },
   { label: "Generate Content", href: "/teacher/generate-content", icon: Sparkles },
   { label: "Content Library", href: "/teacher/content", icon: FileText },
   { label: "Lessons", href: "/teacher/lessons", icon: Video },
   { label: "AI Assistant", href: "/teacher/ai-assistant", icon: Brain },
   { label: "Quizzes", href: "/teacher/quizzes", icon: GraduationCap },
   { label: "Groups", href: "/teacher/groups", icon: UsersRound },
+  { label: "Classes", href: "/teacher/classes", icon: GraduationCap },
   { label: "Calendar", href: "/teacher/calendar", icon: Calendar },
   { label: "Tutoring", href: "/teacher/tutoring", icon: Video },
   { label: "Students", href: "/teacher/students", icon: Users },
@@ -55,6 +57,7 @@ const TEACHER_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Users", href: "/admin/users", icon: Users },
+  { label: "Classes", href: "/admin/classes", icon: GraduationCap },
   { label: "Courses", href: "/admin/courses", icon: BookOpen },
   { label: "AI Assistant", href: "/admin/ai-assistant", icon: Brain },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart2 },
@@ -94,7 +97,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
             <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center shrink-0 shadow">
               <BookOpen className="h-4 w-4 text-white" />
             </div>
-            {!collapsed && <span className="font-bold text-lg gradient-text">Skillora</span>}
+            {!collapsed && <span className="font-bold text-lg gradient-text">Telmidhi</span>}
           </Link>
         </div>
 
