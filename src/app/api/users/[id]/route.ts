@@ -38,7 +38,7 @@ export async function PATCH(
 
     await connectDB();
     const body = await request.json();
-    const allowedFields = ["name", "bio", "avatar", "socialLinks", "expertise"];
+    const allowedFields = ["name", "bio", "avatar", "socialLinks", "expertise", "teachingProfile"];
     const update: Record<string, unknown> = {};
     for (const field of allowedFields) {
       if (body[field] !== undefined) update[field] = body[field];

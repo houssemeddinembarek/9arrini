@@ -7,6 +7,8 @@ export interface ICourseDocument extends Document {
   shortDescription: string;
   thumbnail: string;
   category: string;
+  classe: string;
+  trimestre: string;
   level: "beginner" | "intermediate" | "advanced";
   language: string;
   price: number;
@@ -32,6 +34,8 @@ const CourseSchema = new Schema<ICourseDocument>(
     shortDescription: { type: String, maxlength: 200, default: "" },
     thumbnail: { type: String, default: "" },
     category: { type: String, required: true },
+    classe: { type: String, default: "", index: true },
+    trimestre: { type: String, default: "" },
     level: { type: String, enum: ["beginner", "intermediate", "advanced"], default: "beginner" },
     language: { type: String, default: "English" },
     price: { type: Number, default: 0 },
@@ -52,7 +56,7 @@ const CourseSchema = new Schema<ICourseDocument>(
 );
 
 CourseSchema.index({ title: "text", description: "text", tags: "text" });
-CourseSchema.index({ category: 1, level: 1, status: 1 });
+CourseSchema.index({ category: 1, classe: 1, status: 1 });
 
 const Course: Model<ICourseDocument> =
   mongoose.models.Course || mongoose.model<ICourseDocument>("Course", CourseSchema);

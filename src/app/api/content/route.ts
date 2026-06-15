@@ -12,12 +12,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const subject = searchParams.get("subject");
     const contentType = searchParams.get("contentType");
+    const scope = searchParams.get("scope");
 
-    const filter: Record<string, unknown> = { teacher: session.userId };
+    // Admins can request all teachers' content with scope=all; everyone else
+    // is scoped to the content they own.
+    const filter: Record<string, unknown> = {};
+    if (!(session.role === "admin" && scope === "all")) {
+      filter.teacher = session.userId;
+    }
     if (subject) filter.subject = subject;
     if (contentType) filter.contentType = contentType;
 
-    const items = await Content.find(filter).sort({ createdAt: -1 }).lean();
+    const items = await Content.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("teacher", "name email avatar")
+      .lean();
     return NextResponse.json({ success: true, data: { items } });
   } catch (error) {
     console.error("Content GET error:", error);

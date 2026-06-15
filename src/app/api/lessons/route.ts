@@ -23,14 +23,24 @@ export async function GET(request: NextRequest) {
     const subject = searchParams.get("subject");
     const type = searchParams.get("type");
     const courseId = searchParams.get("courseId");
+    const scope = searchParams.get("scope");
 
-    const filter: Record<string, unknown> = { teacher: session.userId };
+    // Admins can request every teacher's lessons with scope=all; everyone else
+    // is scoped to the lessons they own.
+    const filter: Record<string, unknown> = {};
+    if (!(session.role === "admin" && scope === "all")) {
+      filter.teacher = session.userId;
+    }
     if (subject) filter.subject = subject;
     if (type) filter.type = type;
     if (courseId === "none") filter.course = null;
     else if (courseId) filter.course = courseId;
 
-    const items = await Lesson.find(filter).sort({ createdAt: -1 }).lean();
+    const items = await Lesson.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("teacher", "name email avatar")
+      .populate("course", "title slug")
+      .lean();
     return NextResponse.json({ success: true, data: { items } });
   } catch (error) {
     console.error("Lessons GET error:", error);

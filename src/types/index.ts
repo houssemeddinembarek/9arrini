@@ -30,6 +30,8 @@ export interface ICourse {
   description: string;
   thumbnail: string;
   category: string;
+  classe: string;
+  trimestre: string;
   level: CourseLevel;
   language: string;
   price: number;

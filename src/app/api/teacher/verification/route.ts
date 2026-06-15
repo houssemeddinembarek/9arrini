@@ -32,6 +32,23 @@ export async function POST() {
       );
     }
 
+    // Require the teaching/tutor details used on the public tutor card.
+    const tp = user.teachingProfile;
+    if (
+      !tp?.institution ||
+      !tp.subjects?.length ||
+      !tp.levels?.length ||
+      !tp.availability?.length
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Complétez vos détails d'enseignement (établissement, matières, niveaux, disponibilités).",
+        },
+        { status: 400 }
+      );
+    }
+
     user.verificationStatus = "pending";
     user.rejectionReason = "";
     await user.save();

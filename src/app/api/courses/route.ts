@@ -10,6 +10,8 @@ const createCourseSchema = z.object({
   description: z.string().min(20),
   shortDescription: z.string().max(200).optional(),
   category: z.string(),
+  classe: z.string().optional(),
+  trimestre: z.string().optional(),
   level: z.enum(["beginner", "intermediate", "advanced"]),
   price: z.number().min(0).default(0),
   isFree: z.boolean().default(true),
@@ -26,12 +28,16 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "12");
     const category = searchParams.get("category");
+    const classe = searchParams.get("classe");
+    const trimestre = searchParams.get("trimestre");
     const level = searchParams.get("level");
     const search = searchParams.get("search");
     const sort = searchParams.get("sort") || "newest";
 
     const query: Record<string, unknown> = { status: "published" };
     if (category && category !== "all") query.category = category;
+    if (classe && classe !== "all") query.classe = classe;
+    if (trimestre && trimestre !== "all") query.trimestre = trimestre;
     if (level && level !== "all") query.level = level;
     if (search) query.$text = { $search: search };
 

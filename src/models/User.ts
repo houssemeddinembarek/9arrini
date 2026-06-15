@@ -7,6 +7,9 @@ export interface IUserDocument extends Document {
   password: string;
   avatar?: string;
   bio?: string;
+  // How the account signs in. Social accounts (google/facebook) have no password.
+  provider: "local" | "google" | "facebook";
+  providerId?: string;
   role: "student" | "teacher" | "admin";
   isVerified: boolean;
   isApproved: boolean;
@@ -18,6 +21,23 @@ export interface IUserDocument extends Document {
   badges: string[];
   socialLinks?: { website?: string; twitter?: string; linkedin?: string };
   expertise?: string[];
+  // Student schooling details (collected at signup).
+  studentProfile?: {
+    stage?: string;
+    year?: string;
+    section?: string;
+    governorate?: string;
+  };
+  // Teacher tutoring/teaching profile (shown on the tutor card).
+  teachingProfile?: {
+    institution?: string;
+    headline?: string;
+    subjects?: string[];
+    levels?: string[];
+    availability?: { day: string; from: string; to: string }[];
+    hourlyRate?: number;
+    experienceYears?: number;
+  };
   // Teacher verification: profile completeness + admin review.
   verificationStatus: "incomplete" | "pending" | "approved" | "rejected";
   verificationDocuments: { name: string; url: string; type: string; uploadedAt: Date }[];
@@ -31,7 +51,17 @@ const UserSchema = new Schema<IUserDocument>(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true, minlength: 6, select: false },
+    // Password is only required for local (email/password) accounts.
+    password: {
+      type: String,
+      minlength: 6,
+      select: false,
+      required: function (this: IUserDocument) {
+        return this.provider === "local";
+      },
+    },
+    provider: { type: String, enum: ["local", "google", "facebook"], default: "local" },
+    providerId: { type: String, default: "" },
     avatar: { type: String, default: "" },
     bio: { type: String, maxlength: 500, default: "" },
     role: { type: String, enum: ["student", "teacher", "admin"], default: "student" },
@@ -49,6 +79,21 @@ const UserSchema = new Schema<IUserDocument>(
       linkedin: String,
     },
     expertise: [{ type: String }],
+    studentProfile: {
+      stage: { type: String, default: "" },
+      year: { type: String, default: "" },
+      section: { type: String, default: "" },
+      governorate: { type: String, default: "" },
+    },
+    teachingProfile: {
+      institution: { type: String, default: "" },
+      headline: { type: String, default: "" },
+      subjects: [{ type: String }],
+      levels: [{ type: String }],
+      availability: [{ day: String, from: String, to: String }],
+      hourlyRate: { type: Number, default: 0 },
+      experienceYears: { type: Number, default: 0 },
+    },
     verificationStatus: {
       type: String,
       enum: ["incomplete", "pending", "approved", "rejected"],
