@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get("month");
     const year = searchParams.get("year");
     const upcoming = searchParams.get("upcoming");
+    const recorded = searchParams.get("recorded");
 
     // Teachers the student has been accepted by — they see those teachers' meetings.
     const acceptedTeachers = await TutoringRequest.find({
@@ -38,7 +39,10 @@ export async function GET(request: NextRequest) {
       ],
     };
 
-    if (upcoming) {
+    if (recorded) {
+      // Meetings that have a saved recording — newest replay first.
+      filter.recordingUrl = { $nin: [null, ""] };
+    } else if (upcoming) {
       // Future / today's meetings, soonest first — used by the alert poller.
       filter.date = { $gte: new Date(new Date().setHours(0, 0, 0, 0)) };
       filter.status = "scheduled";
@@ -51,7 +55,7 @@ export async function GET(request: NextRequest) {
     const meetings = await Meeting.find(filter)
       .populate("group", "name color")
       .populate("teacher", "name avatar")
-      .sort({ date: 1, startTime: 1 })
+      .sort(recorded ? { recordedAt: -1 } : { date: 1, startTime: 1 })
       .limit(upcoming ? 20 : 200)
       .lean();
 

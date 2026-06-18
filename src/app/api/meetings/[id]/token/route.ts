@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RtcTokenBuilder, RtcRole } from "agora-token";
 import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
+import { isMeetingEnded } from "@/lib/utils";
 import Meeting from "@/models/Meeting";
 import TutoringRequest from "@/models/TutoringRequest";
 
@@ -29,12 +30,16 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     const { id } = await params;
 
     const meeting = await Meeting.findById(id)
-      .select("teacher students channelName status")
-      .lean<{ teacher: unknown; students: unknown[]; channelName: string; status: string } | null>();
+      .select("teacher students channelName status date startTime endTime")
+      .lean<{ teacher: unknown; students: unknown[]; channelName: string; status: string; date: Date; startTime: string; endTime?: string } | null>();
 
     if (!meeting) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
     if (meeting.status === "cancelled") {
       return NextResponse.json({ error: "This meeting was cancelled" }, { status: 409 });
+    }
+    // Once the meeting's time is over, joining is closed — only the recording remains.
+    if (isMeetingEnded(meeting.date, meeting.startTime, meeting.endTime)) {
+      return NextResponse.json({ error: "This meeting has ended", code: "ended" }, { status: 409 });
     }
 
     const isTeacher = String(meeting.teacher) === session.userId;

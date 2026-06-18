@@ -87,6 +87,11 @@ export function Sidebar({ role = "student" }: SidebarProps) {
     if (["/profile", "/teacher", "/admin"].includes(href)) {
       return pathname === href;
     }
+    // The live meeting room (/meetings/[id]) belongs to the Meetings section
+    // (Calendar for teachers), so keep that nav entry highlighted there.
+    if (pathname.startsWith("/meetings/")) {
+      return href === "/dashboard/meetings" || href === "/teacher/calendar";
+    }
     return pathname.startsWith(href);
   };
 

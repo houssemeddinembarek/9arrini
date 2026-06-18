@@ -13,7 +13,7 @@ import {
   Upload, FileText, Trash2, CheckCircle2, AlertTriangle, ShieldCheck, Loader2, Image as ImageIcon, ExternalLink,
   Building2, Briefcase, Wallet, CalendarDays, BookMarked, ChevronDown, GraduationCap as GradCap, Layers, Check, BookOpenCheck,
   Users, Eye, LayoutDashboard, Settings, LogOut, ClipboardList,
-  Hourglass, XCircle, Search,
+  Hourglass, XCircle, Search, PlayCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentAssignments } from "@/components/assignments/student-assignments";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { getInitials, cn } from "@/lib/utils";
+import { getInitials, cn, isMeetingEnded } from "@/lib/utils";
 import { SUBJECTS, CLASS_LEVELS, WEEKDAYS } from "@/lib/tunisia-education";
 import { toast } from "sonner";
 
@@ -177,9 +177,53 @@ interface UpcomingMeeting {
   title: string;
   date: string;
   startTime: string;
+  endTime?: string;
   type: "online" | "in-person" | "hybrid";
   group?: { name: string };
   teacher?: { name: string };
+  recordingUrl?: string;
+}
+
+// The action shown for a meeting: join while live, watch the recording once it
+// has ended (played in place so the student stays on this screen), or a disabled
+// "Terminé" when there's nothing to replay.
+function MeetingAction({ m }: { m: UpcomingMeeting }) {
+  const [playing, setPlaying] = useState(false);
+
+  if (m.type === "in-person") return null;
+
+  if (isMeetingEnded(m.date, m.startTime, m.endTime)) {
+    if (!m.recordingUrl) {
+      return <Button size="sm" variant="outline" className="shrink-0" disabled>Terminé</Button>;
+    }
+    return (
+      <>
+        <Button size="sm" variant="outline" className="shrink-0" onClick={() => setPlaying(true)}>
+          <PlayCircle className="h-3.5 w-3.5" /> Enregistrement
+        </Button>
+        {playing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setPlaying(false)}>
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h3 className="text-white font-semibold truncate">{m.title}</h3>
+                <button onClick={() => setPlaying(false)} title="Fermer" className="text-white/80 hover:text-white shrink-0">
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+              <video src={m.recordingUrl} controls autoPlay className="w-full rounded-xl bg-black max-h-[80vh]" />
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <Link href={`/meetings/${m._id}`} className="shrink-0">
+      <Button size="sm" variant="gradient"><Video className="h-3.5 w-3.5" /> Rejoindre</Button>
+    </Link>
+  );
 }
 
 interface TutoringReservation {
@@ -834,11 +878,7 @@ export default function ProfilePage() {
                             {m.teacher?.name && <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {m.teacher.name}</span>}
                           </p>
                         </div>
-                        {m.type !== "in-person" && (
-                          <Link href={`/meetings/${m._id}`} className="shrink-0">
-                            <Button size="sm" variant="gradient"><Video className="h-3.5 w-3.5" /> Rejoindre</Button>
-                          </Link>
-                        )}
+                        <MeetingAction m={m} />
                       </div>
                     ))}
                   </div>
@@ -1104,11 +1144,7 @@ export default function ProfilePage() {
                               {m.teacher?.name && <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {m.teacher.name}</span>}
                             </p>
                           </div>
-                          {m.type !== "in-person" && (
-                            <Link href={`/meetings/${m._id}`} className="shrink-0">
-                              <Button size="sm" variant="gradient"><Video className="h-3.5 w-3.5" /> Rejoindre</Button>
-                            </Link>
-                          )}
+                          <MeetingAction m={m} />
                         </div>
                       ))}
                     </div>

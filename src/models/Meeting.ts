@@ -7,6 +7,8 @@ export interface IMeetingDocument extends Document {
   group?: mongoose.Types.ObjectId;
   classSession?: mongoose.Types.ObjectId;
   students: mongoose.Types.ObjectId[];
+  // Prepared Content the teacher shares with students during the meeting.
+  sharedContent: mongoose.Types.ObjectId[];
   date: Date;
   startTime: string;
   endTime?: string;
@@ -17,6 +19,11 @@ export interface IMeetingDocument extends Document {
   reminder: { enabled: boolean; minutesBefore: number };
   reminderSentAt?: Date;
   status: "scheduled" | "cancelled" | "completed";
+  // Cloud-stored recording so students can replay the meeting afterwards.
+  recordingUrl?: string;
+  recordingPublicId?: string;
+  recordingDuration?: number;
+  recordedAt?: Date;
 }
 
 const MeetingSchema = new Schema<IMeetingDocument>(
@@ -27,6 +34,7 @@ const MeetingSchema = new Schema<IMeetingDocument>(
     group: { type: Schema.Types.ObjectId, ref: "Group" },
     classSession: { type: Schema.Types.ObjectId, ref: "ClassSession" },
     students: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    sharedContent: [{ type: Schema.Types.ObjectId, ref: "Content" }],
     date: { type: Date, required: true },
     startTime: { type: String, required: true },
     endTime: { type: String, default: "" },
@@ -42,6 +50,10 @@ const MeetingSchema = new Schema<IMeetingDocument>(
     // Set once the reminder email has gone out, so the cron never sends twice.
     reminderSentAt: { type: Date },
     status: { type: String, enum: ["scheduled", "cancelled", "completed"], default: "scheduled" },
+    recordingUrl: { type: String, default: "" },
+    recordingPublicId: { type: String, default: "" },
+    recordingDuration: { type: Number, default: 0 },
+    recordedAt: { type: Date },
   },
   { timestamps: true }
 );

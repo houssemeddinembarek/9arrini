@@ -45,12 +45,14 @@ const uid = () => Math.random().toString(36).slice(2);
  * data stream carries no history).
  */
 export function Whiteboard({
-  client, onClose, readOnly = false,
+  client, onClose, readOnly = false, onCanvas,
 }: {
   client: IAgoraRTCClient | null;
   onClose: () => void;
   // Students view the board but get no tools and can't draw on it.
   readOnly?: boolean;
+  // Exposes the live canvas so the meeting recorder can capture the board.
+  onCanvas?: (canvas: HTMLCanvasElement | null) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -182,8 +184,12 @@ export function Whiteboard({
     };
     resize();
     window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [redraw]);
+    onCanvas?.(canvas); // hand the live canvas to the recorder
+    return () => {
+      window.removeEventListener("resize", resize);
+      onCanvas?.(null);
+    };
+  }, [redraw, onCanvas]);
 
   // ── Receive remote operations ──
   useEffect(() => {

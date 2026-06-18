@@ -5,6 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// The moment a meeting is over. Uses endTime when set; otherwise assumes the
+// session runs two hours from its start.
+export function getMeetingEnd(date: Date | string, startTime: string, endTime?: string): Date {
+  const end = new Date(date);
+  const time = endTime && /^\d{1,2}:\d{2}$/.test(endTime) ? endTime : null;
+  if (time) {
+    const [h, m] = time.split(":").map(Number);
+    end.setHours(h, m, 0, 0);
+    return end;
+  }
+  const [sh, sm] = (startTime || "00:00").split(":").map(Number);
+  end.setHours(sh, sm, 0, 0);
+  end.setHours(end.getHours() + 2);
+  return end;
+}
+
+// A meeting is "past" once its end time has gone by — past this point nobody
+// joins live; everyone watches the recording instead.
+export function isMeetingEnded(date: Date | string, startTime: string, endTime?: string): boolean {
+  return Date.now() > getMeetingEnd(date, startTime, endTime).getTime();
+}
+
 export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",

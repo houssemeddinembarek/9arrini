@@ -3,14 +3,19 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, AlertTriangle, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AgoraRoom } from "@/components/meetings/agora-room";
+import { isMeetingEnded } from "@/lib/utils";
 
 interface Meeting {
   _id: string;
   title: string;
   status: "scheduled" | "cancelled" | "completed";
+  date: string;
+  startTime: string;
+  endTime?: string;
+  recordingUrl?: string;
 }
 
 interface MeetingResponse {
@@ -63,6 +68,9 @@ export default function MeetingRoomPage() {
     );
   }
 
+  // Past its end time → no more live join; everyone sees the recording.
+  const ended = meeting.status === "completed" || isMeetingEnded(meeting.date, meeting.startTime, meeting.endTime);
+
   return (
     <div className="h-full flex flex-col min-h-0">
       <Link
@@ -71,14 +79,42 @@ export default function MeetingRoomPage() {
       >
         <ArrowLeft className="h-4 w-4" /> Back to meetings
       </Link>
-      <div className="flex-1 min-h-0">
-        <AgoraRoom
-          tokenUrl={`/api/meetings/${meeting._id}/token`}
-          title={meeting.title}
-          isTeacher={isTeacher}
-          backHref="/dashboard/meetings"
-        />
-      </div>
+
+      {ended ? (
+        <div className="flex-1 min-h-0 flex flex-col gap-3">
+          <div className="shrink-0">
+            <h1 className="text-xl font-bold">{meeting.title}</h1>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+              {meeting.recordingUrl ? "Réunion terminée — enregistrement" : "Réunion terminée"}
+            </p>
+          </div>
+          {meeting.recordingUrl ? (
+            <div className="flex-1 min-h-0 rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+              <video src={meeting.recordingUrl} controls autoPlay className="max-h-full max-w-full" />
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 rounded-2xl border border-[hsl(var(--border))] flex items-center justify-center">
+              <div className="text-center px-6">
+                <CalendarClock className="h-10 w-10 text-[hsl(var(--muted-foreground))] mx-auto mb-3" />
+                <h2 className="font-semibold mb-1">Cette réunion est terminée</h2>
+                <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                  Aucun enregistrement n&apos;est disponible pour cette réunion.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0">
+          <AgoraRoom
+            tokenUrl={`/api/meetings/${meeting._id}/token`}
+            meetingId={meeting._id}
+            title={meeting.title}
+            isTeacher={isTeacher}
+            backHref="/dashboard/meetings"
+          />
+        </div>
+      )}
     </div>
   );
 }

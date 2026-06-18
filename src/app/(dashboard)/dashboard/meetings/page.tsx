@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Video, Calendar, Clock, Users, Loader2, CalendarX2 } from "lucide-react";
+import { Video, Calendar, Clock, Users, Loader2, CalendarX2, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
+import { formatDate, isMeetingEnded } from "@/lib/utils";
 
 interface Meeting {
   _id: string;
@@ -18,17 +18,22 @@ interface Meeting {
   status: "scheduled" | "cancelled" | "completed";
   group?: { name: string; color: string };
   teacher?: { name: string };
+  recordingUrl?: string;
 }
 
 export default function MyMeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [replays, setReplays] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/meetings?upcoming=true")
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.success) setMeetings(j.data.meetings);
+    Promise.all([
+      fetch("/api/meetings?upcoming=true").then((r) => r.json()),
+      fetch("/api/meetings?recorded=true").then((r) => r.json()),
+    ])
+      .then(([up, rec]) => {
+        if (up.success) setMeetings(up.data.meetings);
+        if (rec.success) setReplays(rec.data.meetings);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -73,12 +78,57 @@ export default function MyMeetingsPage() {
                 </div>
               </div>
               {m.type !== "in-person" && (
-                <Link href={`/meetings/${m._id}`} className="shrink-0">
-                  <Button variant="gradient" className="w-full sm:w-auto">
-                    <Video className="h-4 w-4" /> Join
-                  </Button>
-                </Link>
+                isMeetingEnded(m.date, m.startTime, m.endTime) ? (
+                  m.recordingUrl ? (
+                    <Link href={`/meetings/${m._id}`} className="shrink-0">
+                      <Button variant="outline" className="w-full sm:w-auto">
+                        <PlayCircle className="h-4 w-4" /> Watch recording
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button variant="outline" className="w-full sm:w-auto shrink-0" disabled>
+                      Ended
+                    </Button>
+                  )
+                ) : (
+                  <Link href={`/meetings/${m._id}`} className="shrink-0">
+                    <Button variant="gradient" className="w-full sm:w-auto">
+                      <Video className="h-4 w-4" /> Join
+                    </Button>
+                  </Link>
+                )
               )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Recorded sessions a student can watch again */}
+      {!loading && replays.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2 pt-2">
+            <PlayCircle className="h-5 w-5 text-[hsl(var(--primary))]" /> Replays
+          </h2>
+          {replays.map((m) => (
+            <div
+              key={m._id}
+              className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 flex flex-col sm:flex-row sm:items-center gap-4"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold">{m.title}</h3>
+                  {m.group?.name && <Badge variant="purple">{m.group.name}</Badge>}
+                </div>
+                <div className="flex items-center gap-4 mt-2 text-xs text-[hsl(var(--muted-foreground))]">
+                  <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {formatDate(m.date)}</span>
+                  {m.teacher?.name && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {m.teacher.name}</span>}
+                </div>
+              </div>
+              <Link href={`/meetings/${m._id}`} className="shrink-0">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <PlayCircle className="h-4 w-4" /> Watch recording
+                </Button>
+              </Link>
             </div>
           ))}
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   IAgoraRTC,
   IAgoraRTCClient,
@@ -13,10 +13,13 @@ import type {
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, AlertTriangle, Users,
   MonitorUp, Presentation, Crown, ChevronUp, ChevronDown, Images,
+  FileText, Loader2, Check, Disc,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Whiteboard } from "@/components/meetings/whiteboard";
+import { SharedContent, type SharedContentItem } from "@/components/content/shared-content";
+import { MeetingRecorder, type RecorderSource } from "@/lib/meeting-recorder";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +48,11 @@ type RoomMessage =
   | { k: "hello"; uid: string; name: string; role: "teacher" | "student"; mic: boolean; cam: boolean; reply?: boolean }
   | { k: "status"; uid: string; mic: boolean; cam: boolean }
   | { k: "ctrl"; target: string; action: "mute-audio" | "mute-video" }
-  | { k: "board"; open: boolean };
+  | { k: "board"; open: boolean }
+  // Teacher shares prepared content; clients re-fetch the list and follow the active item.
+  | { k: "content"; open: boolean; activeId: string | null }
+  // Teacher is recording — students show a "REC" badge.
+  | { k: "rec"; on: boolean };
 
 function initials(name: string) {
   return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
@@ -99,11 +106,13 @@ function RemotePlayer({
 
 export function AgoraRoom({
   tokenUrl,
+  meetingId,
   title,
   isTeacher = false,
   backHref = "/dashboard/meetings",
 }: {
   tokenUrl: string;
+  meetingId: string;
   title: string;
   isTeacher?: boolean;
   backHref?: string;
@@ -126,6 +135,22 @@ export function AgoraRoom({
   const [showStrip, setShowStrip] = useState(true);
   const [client, setClient] = useState<IAgoraRTCClient | null>(null);
 
+  // Shared content (teacher-prepared material shown to the room).
+  const [sharedItems, setSharedItems] = useState<SharedContentItem[]>([]);
+  const [showContent, setShowContent] = useState(false);
+  const [activeContentId, setActiveContentId] = useState<string | null>(null);
+  // Teacher's content picker.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [library, setLibrary] = useState<SharedContentItem[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+
+  // Recording (teacher records the meeting for replay; students see a badge).
+  const [recording, setRecording] = useState(false);
+  const [recordingBusy, setRecordingBusy] = useState(false);
+  const [teacherRecording, setTeacherRecording] = useState(false);
+  const recorderRef = useRef<MeetingRecorder | null>(null);
+
   const agoraRef = useRef<IAgoraRTC | null>(null);
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const micTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
@@ -138,6 +163,17 @@ export function AgoraRoom({
   const micOnRef = useRef(true);
   const camOnRef = useRef(true);
   const showBoardRef = useRef(false);
+  const showContentRef = useRef(false);
+  const activeContentRef = useRef<string | null>(null);
+  const recordingRef = useRef(false);
+  const boardCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // The whiteboard hands us its live canvas; feed it to the recorder as the
+  // main surface so a shared board is captured in the recording.
+  const setBoardCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
+    boardCanvasRef.current = canvas;
+    if (recordingRef.current) recorderRef.current?.setPrimary(canvas, "Tableau");
+  }, []);
 
   const send = (msg: RoomMessage) => {
     const c = clientRef.current as RtcWithDataStream | null;
@@ -163,6 +199,147 @@ export function AgoraRoom({
       toast.info("Le professeur a coupé ta caméra");
     }
     broadcastStatus();
+  };
+
+  // ── Shared content (teacher-prepared material) ──
+  // Pull whatever the teacher is currently sharing in this meeting.
+  const fetchShared = async () => {
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/content`);
+      const json = await res.json();
+      if (res.ok && json.success) setSharedItems(json.data.items as SharedContentItem[]);
+    } catch { /* ignore */ }
+  };
+
+  const closeContent = () => {
+    showContentRef.current = false;
+    setShowContent(false);
+    if (isTeacher) send({ k: "content", open: false, activeId: activeContentRef.current });
+  };
+
+  // Switch the visible item. The teacher drives it for the room; a student may
+  // also browse the shared items locally (no broadcast).
+  const selectContent = (id: string) => {
+    activeContentRef.current = id;
+    setActiveContentId(id);
+    if (isTeacher) send({ k: "content", open: true, activeId: id });
+  };
+
+  // Open the picker and load the teacher's content library.
+  const openPicker = async () => {
+    setPicked(sharedItems.map((i) => i._id));
+    setPickerOpen(true);
+    setLibraryLoading(true);
+    try {
+      const res = await fetch(`/api/content`);
+      const json = await res.json();
+      if (res.ok && json.success) setLibrary(json.data.items as SharedContentItem[]);
+    } catch { /* ignore */ }
+    finally { setLibraryLoading(false); }
+  };
+
+  // Share the picked content (one or many) with the whole room.
+  const shareContent = async () => {
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/content`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentIds: picked }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "Échec du partage");
+      const items = json.data.items as SharedContentItem[];
+      setSharedItems(items);
+      setPickerOpen(false);
+      if (items.length === 0) { closeContent(); return; }
+
+      const activeId = items.some((i) => i._id === activeContentRef.current)
+        ? activeContentRef.current
+        : items[0]._id;
+      // The side panel shows one thing at a time: content takes over from the board.
+      if (showBoardRef.current) { showBoardRef.current = false; setShowBoard(false); send({ k: "board", open: false }); }
+      showContentRef.current = true;
+      activeContentRef.current = activeId;
+      setShowContent(true);
+      setActiveContentId(activeId);
+      send({ k: "content", open: true, activeId });
+      toast.success(items.length > 1 ? `${items.length} contenus partagés` : "Contenu partagé");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Échec du partage");
+    }
+  };
+
+  // ── Recording (teacher) ──
+  // The current set of participant tracks to feed the recorder's grid + mixer.
+  const recorderSources = (): RecorderSource[] => {
+    const localVideo = sharing
+      ? screenTrackRef.current?.getMediaStreamTrack()
+      : camOnRef.current ? camTrackRef.current?.getMediaStreamTrack() : undefined;
+    const sources: RecorderSource[] = [{
+      id: "local",
+      label: `${myName} (toi)`,
+      video: localVideo,
+      audio: micTrackRef.current?.getMediaStreamTrack(),
+    }];
+    for (const ru of clientRef.current?.remoteUsers ?? []) {
+      sources.push({
+        id: String(ru.uid),
+        label: roster[String(ru.uid)]?.name || `Invité ${String(ru.uid).slice(0, 4)}`,
+        video: ru.videoTrack?.getMediaStreamTrack(),
+        audio: ru.audioTrack?.getMediaStreamTrack(),
+      });
+    }
+    return sources;
+  };
+
+  const uploadRecording = async (blob: Blob) => {
+    if (blob.size === 0) { toast.error("Enregistrement vide"); return; }
+    const fd = new FormData();
+    fd.append("file", new File([blob], `meeting-${meetingId}.webm`, { type: "video/webm" }));
+    const res = await fetch(`/api/meetings/${meetingId}/recording`, { method: "POST", body: fd });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && json.success) toast.success("Enregistrement sauvegardé — les élèves pourront le revoir");
+    else toast.error(json.error || "Échec de la sauvegarde de l'enregistrement");
+  };
+
+  const toggleRecord = async () => {
+    if (recordingBusy) return;
+
+    if (recording) {
+      // Stop, then upload.
+      setRecording(false);
+      recordingRef.current = false;
+      send({ k: "rec", on: false });
+      setRecordingBusy(true);
+      try {
+        const blob = await recorderRef.current?.stop();
+        recorderRef.current = null;
+        if (blob) await uploadRecording(blob);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Erreur d'enregistrement");
+      } finally {
+        setRecordingBusy(false);
+      }
+      return;
+    }
+
+    if (!MeetingRecorder.isSupported()) {
+      toast.error("L'enregistrement n'est pas supporté par ce navigateur");
+      return;
+    }
+    try {
+      const rec = new MeetingRecorder();
+      rec.start();
+      rec.setSources(recorderSources());
+      rec.setPrimary(boardCanvasRef.current, "Tableau"); // capture the board if it's open
+      recorderRef.current = rec;
+      recordingRef.current = true;
+      setRecording(true);
+      send({ k: "rec", on: true });
+      toast.success("Enregistrement démarré");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Impossible de démarrer l'enregistrement");
+    }
   };
 
   // ── Join + media + presence/control wiring ──
@@ -205,8 +382,10 @@ export function AgoraRoom({
             setRoster((r) => ({ ...r, [msg.uid]: { name: msg.name, role: msg.role, mic: msg.mic, cam: msg.cam } }));
             if (!msg.reply) {
               announce(true); // let the newcomer learn about us
-              // The teacher also syncs the board state so late joiners catch up.
+              // The teacher also syncs the board + shared content so late joiners catch up.
               if (isTeacher && showBoardRef.current) send({ k: "board", open: true });
+              if (isTeacher && showContentRef.current) send({ k: "content", open: true, activeId: activeContentRef.current });
+              if (isTeacher && recordingRef.current) send({ k: "rec", on: true });
             }
           } else if (msg.k === "status") {
             if (msg.uid === myUidRef.current) return;
@@ -218,6 +397,15 @@ export function AgoraRoom({
             // Students follow the teacher: the board opens/closes on their screen too.
             showBoardRef.current = msg.open;
             setShowBoard(msg.open);
+          } else if (msg.k === "content" && !isTeacher) {
+            // Students follow the teacher's shared content.
+            showContentRef.current = msg.open;
+            activeContentRef.current = msg.activeId;
+            setShowContent(msg.open);
+            setActiveContentId(msg.activeId);
+            if (msg.open) fetchShared();
+          } else if (msg.k === "rec" && !isTeacher) {
+            setTeacherRecording(msg.on);
           }
         });
 
@@ -249,6 +437,8 @@ export function AgoraRoom({
 
     return () => {
       cancelled = true;
+      recorderRef.current?.stop().catch(() => {});
+      recorderRef.current = null;
       micTrackRef.current?.close();
       camTrackRef.current?.close();
       screenTrackRef.current?.close();
@@ -257,6 +447,13 @@ export function AgoraRoom({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenUrl]);
+
+  // While recording, keep the recorder's grid + mixer in step with who's present
+  // and whether the teacher's camera/screen is on.
+  useEffect(() => {
+    if (recording && recorderRef.current) recorderRef.current.setSources(recorderSources());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording, remoteUsers, camOn, sharing, micOn, roster]);
 
   // ── Local controls ──
   const toggleMic = async () => {
@@ -322,6 +519,8 @@ export function AgoraRoom({
       const next = !v;
       showBoardRef.current = next;
       if (isTeacher) send({ k: "board", open: next });
+      // The side panel shows one thing at a time: the board takes over from content.
+      if (next && showContentRef.current) closeContent();
       return next;
     });
   };
@@ -352,8 +551,10 @@ export function AgoraRoom({
   const teacherRemote = remoteUsers.find((ru) => roster[String(ru.uid)]?.role === "teacher");
   const otherRemotes = remoteUsers.filter((ru) => ru !== teacherRemote);
 
+  // A side panel (whiteboard or shared content) is open.
+  const sidePanel = showBoard || showContent;
   const tiles = remoteUsers.length + 1;
-  const gridCols = showBoard ? "grid-cols-1" : tiles <= 1 ? "grid-cols-1" : tiles <= 4 ? "grid-cols-2" : "grid-cols-3";
+  const gridCols = sidePanel ? "grid-cols-1" : tiles <= 1 ? "grid-cols-1" : tiles <= 4 ? "grid-cols-2" : "grid-cols-3";
 
   // Side-panel roster: me first, then everyone else.
   const visibleMembers = Object.entries(roster);
@@ -407,6 +608,11 @@ export function AgoraRoom({
           <p className="text-xs text-[hsl(var(--muted-foreground))] flex items-center gap-1.5 mt-0.5">
             <span className={cn("h-2 w-2 rounded-full", status === "live" ? "bg-green-500" : "bg-amber-500 animate-pulse")} />
             {status === "live" ? `${tiles} en ligne` : "connexion…"}
+            {(recording || teacherRecording) && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 ml-1">
+                <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse" /> REC
+              </span>
+            )}
           </p>
         </div>
         <Button variant={showPanel ? "gradient" : "outline"} size="sm" onClick={() => setShowPanel((v) => !v)}>
@@ -415,9 +621,9 @@ export function AgoraRoom({
       </div>
       )}
 
-      {/* Stage (left) + shared whiteboard (right half when open) */}
-      <div className={cn("flex gap-3 flex-1 min-h-0", showBoard && "flex-col lg:flex-row")}>
-        <div className={cn("flex gap-3 min-w-0 min-h-0", showBoard ? "lg:w-1/2" : "flex-1")}>
+      {/* Stage (left) + side panel (whiteboard or shared content) on the right half */}
+      <div className={cn("flex gap-3 flex-1 min-h-0", sidePanel && "flex-col lg:flex-row")}>
+        <div className={cn("flex gap-3 min-w-0 min-h-0", sidePanel ? "lg:w-1/2" : "flex-1")}>
         {isTeacher ? (
           // Teacher: equal grid of everyone (scrolls inside its own box if crowded).
           <div className={cn("grid gap-3 flex-1 min-h-0 overflow-y-auto auto-rows-min content-start", gridCols)}>
@@ -533,9 +739,19 @@ export function AgoraRoom({
         )}
         </div>
 
-        {showBoard && (
+        {showContent ? (
           <div className="lg:w-1/2 min-w-0 flex-1 min-h-0">
-            <Whiteboard client={client} onClose={closeBoard} readOnly={!isTeacher} />
+            <SharedContent
+              items={sharedItems}
+              activeId={activeContentId}
+              onSelect={selectContent}
+              onClose={closeContent}
+              canControl={isTeacher}
+            />
+          </div>
+        ) : showBoard && (
+          <div className="lg:w-1/2 min-w-0 flex-1 min-h-0">
+            <Whiteboard client={client} onClose={closeBoard} readOnly={!isTeacher} onCanvas={setBoardCanvas} />
           </div>
         )}
       </div>
@@ -558,6 +774,25 @@ export function AgoraRoom({
               <Presentation className="h-5 w-5" />
             </Button>
           )}
+          {/* Share prepared content with students (teacher-only). */}
+          {isTeacher && (
+            <Button variant={showContent ? "gradient" : "outline"} size="icon" className="h-12 w-12 rounded-full" onClick={openPicker} title="Partager du contenu">
+              <FileText className="h-5 w-5" />
+            </Button>
+          )}
+          {/* Record the meeting so students can replay it (teacher-only). */}
+          {isTeacher && (
+            <Button
+              variant={recording ? "destructive" : "outline"}
+              size="icon"
+              className="h-12 w-12 rounded-full"
+              onClick={toggleRecord}
+              disabled={recordingBusy}
+              title={recording ? "Arrêter l'enregistrement" : "Enregistrer la réunion"}
+            >
+              {recordingBusy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Disc className={cn("h-5 w-5", recording && "animate-pulse")} />}
+            </Button>
+          )}
           {/* Collapse the header to free up vertical space */}
           <Button variant="outline" size="icon" className="h-12 w-12 rounded-full" onClick={() => setShowHeader((v) => !v)} title={showHeader ? "Masquer l'en-tête" : "Afficher l'en-tête"}>
             {showHeader ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -567,6 +802,60 @@ export function AgoraRoom({
           </Button>
         </div>
       </div>
+
+      {/* Content picker (teacher) — choose one or several prepared items to share */}
+      {pickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-lg max-h-[80vh] rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[hsl(var(--border))]">
+              <h3 className="font-semibold flex items-center gap-2"><FileText className="h-4 w-4 text-[hsl(var(--primary))]" /> Partager du contenu</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">Sélectionne un ou plusieurs contenus à montrer aux élèves.</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {libraryLoading ? (
+                <div className="py-12 flex justify-center text-[hsl(var(--muted-foreground))]"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : library.length === 0 ? (
+                <p className="py-12 text-center text-sm text-[hsl(var(--muted-foreground))]">Aucun contenu préparé.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {library.map((it) => {
+                    const on = picked.includes(it._id);
+                    return (
+                      <button
+                        key={it._id}
+                        onClick={() => setPicked((p) => (on ? p.filter((x) => x !== it._id) : [...p, it._id]))}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors",
+                          on ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5" : "border-[hsl(var(--border))] hover:bg-[hsl(var(--accent))]",
+                        )}
+                      >
+                        <span className={cn("h-5 w-5 rounded-md border flex items-center justify-center shrink-0", on ? "bg-[hsl(var(--primary))] border-transparent text-white" : "border-[hsl(var(--border))]")}>
+                          {on && <Check className="h-3.5 w-3.5" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium truncate">{it.title}</span>
+                          <span className="block text-[11px] text-[hsl(var(--muted-foreground))]">{it.contentType}{it.pdfUrl ? " · PDF" : ""}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-[hsl(var(--border))] flex items-center justify-between gap-3">
+              <span className="text-xs text-[hsl(var(--muted-foreground))]">{picked.length} sélectionné{picked.length > 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPickerOpen(false)}>Annuler</Button>
+                <Button variant="gradient" size="sm" onClick={shareContent}>Partager</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
