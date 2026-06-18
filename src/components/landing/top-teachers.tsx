@@ -1,26 +1,47 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Star, Users, BookOpen, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getInitials } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 
-// People data (names, avatars, stats); specialty/level/bio are translated and
-// resolved from the dictionary by index.
-const TEACHERS = [
-  { id: "1", name: "Sami Ben Salah", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&q=80", rating: 4.9, students: 240, groups: 8 },
-  { id: "2", name: "Leila Trabelsi", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80", rating: 4.8, students: 180, groups: 6 },
-  { id: "3", name: "Karim Mzali", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&q=80", rating: 4.9, students: 210, groups: 7 },
-  { id: "4", name: "Ines Bouaziz", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&q=80", rating: 4.7, students: 320, groups: 12 },
-];
+interface Teacher {
+  _id: string;
+  name: string;
+  avatar?: string;
+  specialty: string;
+  level: string;
+  bio: string;
+  rating: number;
+  students: number;
+  groups: number;
+}
 
 export function TopTeachers() {
   const router = useRouter();
   const { dict } = useI18n();
   const t = dict.topTeachers;
+
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/teachers")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) setTeachers(j.data.teachers.slice(0, 4));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Nothing to show yet (no approved teachers) — hide the section.
+  if (!loading && teachers.length === 0) return null;
 
   return (
     <section className="py-24">
@@ -39,49 +60,53 @@ export function TopTeachers() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {TEACHERS.map((teacher, idx) => (
-            <div
-              key={teacher.id}
-              className="group p-6 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-center hover:shadow-xl hover:border-[hsl(var(--primary))]/30 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
-              onClick={() => router.push(`/tutoring`)}
-            >
-              <Avatar className="h-20 w-20 mx-auto mb-4 ring-4 ring-[hsl(var(--border))] group-hover:ring-[hsl(var(--primary))]/30 transition-all">
-                <AvatarImage src={teacher.avatar} alt={teacher.name} />
-                <AvatarFallback className="gradient-bg text-white text-xl font-bold">
-                  {getInitials(teacher.name)}
-                </AvatarFallback>
-              </Avatar>
-              <h3 className="font-semibold text-lg mb-1">{teacher.name}</h3>
-              <Badge variant="purple" className="mb-1">{t.list[idx].specialty}</Badge>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2">{t.list[idx].level}</p>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-3 mb-4">
-                {t.list[idx].bio}
-              </p>
-              <div className="flex items-center justify-around text-sm border-t border-[hsl(var(--border))] pt-4">
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-1 text-amber-500">
-                    <Star className="h-3.5 w-3.5 fill-current" />
-                    <span className="font-semibold">{teacher.rating}</span>
+          {loading
+            ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-72 rounded-2xl" />)
+            : teachers.map((teacher) => (
+                <div
+                  key={teacher._id}
+                  className="group p-6 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-center hover:shadow-xl hover:border-[hsl(var(--primary))]/30 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                  onClick={() => router.push(`/tutoring`)}
+                >
+                  <Avatar className="h-20 w-20 mx-auto mb-4 ring-4 ring-[hsl(var(--border))] group-hover:ring-[hsl(var(--primary))]/30 transition-all">
+                    <AvatarImage src={teacher.avatar} alt={teacher.name} />
+                    <AvatarFallback className="gradient-bg text-white text-xl font-bold">
+                      {getInitials(teacher.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <h3 className="font-semibold text-lg mb-1">{teacher.name}</h3>
+                  {teacher.specialty && <Badge variant="purple" className="mb-1">{teacher.specialty}</Badge>}
+                  {teacher.level && <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2">{teacher.level}</p>}
+                  {teacher.bio && (
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-3 mb-4">
+                      {teacher.bio}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-around text-sm border-t border-[hsl(var(--border))] pt-4 mt-2">
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-1 text-amber-500">
+                        <Star className="h-3.5 w-3.5 fill-current" />
+                        <span className="font-semibold">{teacher.rating > 0 ? teacher.rating.toFixed(1) : "—"}</span>
+                      </div>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.rating}</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5 text-blue-500" />
+                        <span className="font-semibold">{teacher.students}</span>
+                      </div>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.students}</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center gap-1">
+                        <BookOpen className="h-3.5 w-3.5 text-green-500" />
+                        <span className="font-semibold">{teacher.groups}</span>
+                      </div>
+                      <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.groups}</span>
+                    </div>
                   </div>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.rating}</span>
                 </div>
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5 text-blue-500" />
-                    <span className="font-semibold">{teacher.students}</span>
-                  </div>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.students}</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-1">
-                    <BookOpen className="h-3.5 w-3.5 text-green-500" />
-                    <span className="font-semibold">{teacher.groups}</span>
-                  </div>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))]">{t.labels.groups}</span>
-                </div>
-              </div>
-            </div>
-          ))}
+              ))}
         </div>
 
         <div className="text-center">

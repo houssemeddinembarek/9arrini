@@ -1,117 +1,132 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar, Clock, Video, ArrowRight, Search, Star, Users } from "lucide-react";
+import {
+  Video, Loader2, CalendarDays, Clock, Users, Hourglass, CheckCircle2, XCircle, Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getInitials } from "@/lib/utils";
+import { getInitials, formatDate } from "@/lib/utils";
 
-const BOOKINGS = [
-  {
-    id: "1",
-    teacher: { name: "Sarah Johnson", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=50" },
-    subject: "React Advanced Patterns",
-    date: "2024-02-15",
-    time: "2:00 PM",
-    duration: 60,
-    status: "upcoming",
-    meetingUrl: "https://zoom.us/j/example",
-  },
-  {
-    id: "2",
-    teacher: { name: "Dr. Marcus Chen", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=50" },
-    subject: "Machine Learning Basics",
-    date: "2024-01-28",
-    time: "4:00 PM",
-    duration: 60,
-    status: "completed",
-    meetingUrl: "",
-  },
-];
+interface ReqItem {
+  _id: string;
+  status: "pending" | "accepted" | "rejected";
+  teacher?: { _id: string; name: string; avatar?: string };
+}
+interface Meeting {
+  _id: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  type: "online" | "in-person" | "hybrid";
+  teacher?: { name: string };
+}
 
 export default function DashboardTutoringPage() {
+  const [requests, setRequests] = useState<ReqItem[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [rRes, mRes] = await Promise.all([
+          fetch("/api/tutoring/requests"),
+          fetch("/api/meetings?upcoming=true"),
+        ]);
+        const rJson = await rRes.json();
+        const mJson = await mRes.json();
+        if (rJson.success) setRequests(rJson.data.requests);
+        if (mJson.success) setMeetings(mJson.data.meetings);
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const accepted = requests.filter((r) => r.status === "accepted");
+
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-3xl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Tutoring Sessions</h1>
-          <p className="text-[hsl(var(--muted-foreground))] mt-1">Manage your 1-on-1 sessions</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Video className="h-6 w-6 text-[hsl(var(--primary))]" /> Tutorat
+          </h1>
+          <p className="text-[hsl(var(--muted-foreground))] mt-1">Tes professeurs et leurs réunions à venir</p>
         </div>
         <Link href="/tutoring">
-          <Button variant="gradient">
-            <Search className="h-4 w-4" /> Find a Tutor
-          </Button>
+          <Button variant="outline"><Search className="h-4 w-4" /> Trouver un prof</Button>
         </Link>
       </div>
 
-      <Tabs defaultValue="upcoming">
-        <TabsList>
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-        </TabsList>
+      {loading ? (
+        <div className="flex items-center justify-center py-20 text-[hsl(var(--muted-foreground))]"><Loader2 className="h-6 w-6 animate-spin" /></div>
+      ) : (
+        <>
+          {/* My teachers / reservation statuses */}
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Mes professeurs</h2>
+            {requests.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[hsl(var(--border))] p-8 text-center text-sm text-[hsl(var(--muted-foreground))]">
+                Tu n&apos;as encore réservé aucun professeur.{" "}
+                <Link href="/tutoring" className="text-[hsl(var(--primary))] hover:underline">Trouve un prof</Link>.
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] divide-y divide-[hsl(var(--border))]">
+                {requests.map((r) => (
+                  <div key={r._id} className="flex items-center gap-3 p-3">
+                    <Avatar className="h-9 w-9"><AvatarImage src={r.teacher?.avatar} /><AvatarFallback className="text-xs">{getInitials(r.teacher?.name || "?")}</AvatarFallback></Avatar>
+                    <p className="flex-1 min-w-0 text-sm font-medium truncate">{r.teacher?.name}</p>
+                    {r.status === "accepted" ? (
+                      <Badge variant="success" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Accepté</Badge>
+                    ) : r.status === "pending" ? (
+                      <Badge variant="warning" className="gap-1"><Hourglass className="h-3 w-3" /> En attente</Badge>
+                    ) : (
+                      <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Refusé</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {["upcoming", "completed"].map((tab) => (
-          <TabsContent key={tab} value={tab} className="mt-4">
-            <div className="space-y-4">
-              {BOOKINGS.filter((b) => b.status === tab).map((booking) => (
-                <div key={booking.id} className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={booking.teacher.avatar} />
-                    <AvatarFallback className="gradient-bg text-white font-bold">
-                      {getInitials(booking.teacher.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="font-semibold">{booking.subject}</h3>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))]">with {booking.teacher.name}</p>
-                    <div className="flex flex-wrap gap-3 mt-2 text-xs text-[hsl(var(--muted-foreground))]">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5" /> {booking.date}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" /> {booking.time}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" /> {booking.duration} min
-                      </span>
+          {/* Upcoming meetings from accepted teachers */}
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">Prochaines réunions</h2>
+            {accepted.length === 0 ? (
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">Une fois accepté par un professeur, tu verras ici ses réunions.</p>
+            ) : meetings.length === 0 ? (
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">Aucune réunion à venir pour le moment.</p>
+            ) : (
+              <div className="space-y-3">
+                {meetings.map((m) => (
+                  <div key={m._id} className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold">{m.title}</p>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-[hsl(var(--muted-foreground))] flex-wrap">
+                        <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> {formatDate(m.date)}</span>
+                        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {m.startTime}{m.endTime ? `–${m.endTime}` : ""}</span>
+                        {m.teacher?.name && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {m.teacher.name}</span>}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {tab === "upcoming" && booking.meetingUrl && (
-                      <Button variant="gradient" size="sm" asChild>
-                        <a href={booking.meetingUrl} target="_blank" rel="noopener noreferrer">
-                          <Video className="h-4 w-4" /> Join
-                        </a>
-                      </Button>
+                    {m.type !== "in-person" && (
+                      <Link href={`/meetings/${m._id}`} className="shrink-0">
+                        <Button variant="gradient" size="sm"><Video className="h-4 w-4" /> Rejoindre</Button>
+                      </Link>
                     )}
-                    {tab === "completed" && (
-                      <Button variant="outline" size="sm">
-                        <Star className="h-4 w-4" /> Review
-                      </Button>
-                    )}
-                    <Badge variant={tab === "upcoming" ? "blue" : "success"} className="self-center capitalize">
-                      {tab}
-                    </Badge>
                   </div>
-                </div>
-              ))}
-
-              {BOOKINGS.filter((b) => b.status === tab).length === 0 && (
-                <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                  <Calendar className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p className="font-medium">No {tab} sessions</p>
-                  <Link href="/tutoring">
-                    <Button variant="outline" className="mt-4">Book a Session</Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongodb";
 import { notifyUsers } from "@/lib/notifications";
 import Meeting from "@/models/Meeting";
 import Group from "@/models/Group";
+import TutoringRequest from "@/models/TutoringRequest";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,9 +18,22 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get("year");
     const upcoming = searchParams.get("upcoming");
 
-    // A user sees meetings they teach OR are invited to as a student.
+    // Teachers the student has been accepted by — they see those teachers' meetings.
+    const acceptedTeachers = await TutoringRequest.find({
+      student: session.userId,
+      status: "accepted",
+    })
+      .select("teacher")
+      .lean<{ teacher: unknown }[]>();
+    const teacherIds = acceptedTeachers.map((r) => r.teacher);
+
+    // A user sees meetings they teach, are invited to, or whose teacher accepted them.
     const filter: Record<string, unknown> = {
-      $or: [{ teacher: session.userId }, { students: session.userId }],
+      $or: [
+        { teacher: session.userId },
+        { students: session.userId },
+        ...(teacherIds.length ? [{ teacher: { $in: teacherIds } }] : []),
+      ],
     };
 
     if (upcoming) {

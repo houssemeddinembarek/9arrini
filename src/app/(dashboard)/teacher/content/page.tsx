@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   BookOpen, FileText, GraduationCap, ClipboardList, Sparkles,
-  Upload, Trash2, ExternalLink, Filter, Search, Plus, RefreshCw,
+  Upload, Trash2, ExternalLink, Filter, Search, Brain, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -98,11 +98,23 @@ export default function ContentLibraryPage() {
             {items.length} document{items.length !== 1 ? "s" : ""} enregistré{items.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link href="/teacher/generate-content">
-          <Button variant="gradient">
-            <Plus className="h-4 w-4" /> Ajouter du contenu
-          </Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/teacher/generate-content?mode=upload">
+            <Button variant="outline">
+              <Upload className="h-4 w-4" /> Importer un PDF
+            </Button>
+          </Link>
+          <Link href="/teacher/generate-content?mode=adapt">
+            <Button variant="outline">
+              <Brain className="h-4 w-4" /> Adapter un PDF
+            </Button>
+          </Link>
+          <Link href="/teacher/generate-content?mode=ai">
+            <Button variant="gradient">
+              <Sparkles className="h-4 w-4" /> Générer avec IA
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -152,7 +164,7 @@ export default function ContentLibraryPage() {
             {search ? "Essayez d'autres mots-clés" : "Commencez par générer ou importer du contenu"}
           </p>
           {!search && (
-            <Link href="/teacher/generate-content">
+            <Link href="/teacher/generate-content?mode=ai">
               <Button variant="gradient" className="mt-4">
                 <Sparkles className="h-4 w-4" /> Créer du contenu
               </Button>

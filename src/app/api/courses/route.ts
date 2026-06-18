@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import Course from "@/models/Course";
+import Lesson from "@/models/Lesson";
+import Content from "@/models/Content";
 import { slugify } from "@/lib/utils";
 import { z } from "zod";
 
@@ -19,6 +21,9 @@ const createCourseSchema = z.object({
   requirements: z.array(z.string()).optional(),
   objectives: z.array(z.string()).optional(),
   language: z.string().default("English"),
+  // Attachments: video lessons and PDF documents from the teacher's library.
+  lessonIds: z.array(z.string()).optional(),
+  contentIds: z.array(z.string()).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -94,15 +99,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const slug = slugify(parsed.data.title);
+    const { lessonIds = [], contentIds = [], ...courseData } = parsed.data;
+
+    const slug = slugify(courseData.title);
     const existing = await Course.findOne({ slug });
     const finalSlug = existing ? `${slug}-${Date.now()}` : slug;
 
+    // Only attach lessons/contents the teacher actually owns.
+    const [ownedLessons, ownedContents] = await Promise.all([
+      lessonIds.length
+        ? Lesson.find({ _id: { $in: lessonIds }, teacher: session.userId }).select("_id").lean()
+        : [],
+      contentIds.length
+        ? Content.find({ _id: { $in: contentIds }, teacher: session.userId }).select("_id").lean()
+        : [],
+    ]);
+    const lessonObjIds = ownedLessons.map((l) => l._id);
+    const contentObjIds = ownedContents.map((c) => c._id);
+
     const course = await Course.create({
-      ...parsed.data,
+      ...courseData,
       slug: finalSlug,
       teacher: session.userId,
+      lessons: lessonObjIds,
+      contents: contentObjIds,
     });
+
+    // Link the chosen video lessons to this course.
+    if (lessonObjIds.length) {
+      await Lesson.updateMany({ _id: { $in: lessonObjIds } }, { course: course._id });
+    }
 
     return NextResponse.json({ success: true, data: { course } }, { status: 201 });
   } catch (error) {

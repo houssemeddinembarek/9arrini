@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center shadow">
             <BookOpen className="h-4 w-4 text-white" />
           </div>
-          <span className="gradient-text">Skillora</span>
+          <span className="gradient-text">Telmidhi</span>
         </Link>
         <ThemeToggle />
       </header>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Users, Plus, Pencil, Trash2, X, Check, UserPlus,
-  GraduationCap, BookOpen, ChevronDown,
+  GraduationCap, BookOpen, ChevronDown, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,12 +113,11 @@ export default function GroupsPage() {
   const [form, setForm] = useState<GroupFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-  const [addEmailInput, setAddEmailInput] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchGroups();
-  }, []);
+  // Pool of the teacher's students (class + tutoring) to assign to groups.
+  const [pool, setPool] = useState<Student[]>([]);
+  const [savingMembers, setSavingMembers] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState<string | null>(null);
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -136,6 +135,28 @@ export default function GroupsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      await fetchGroups();
+      try {
+        const res = await fetch("/api/teacher/students");
+        const json = await res.json();
+        if (json.success) {
+          setPool(
+            json.data.students.map((s: { _id: string; name: string; email: string; avatar?: string }) => ({
+              _id: s._id,
+              name: s.name,
+              email: s.email,
+              avatar: s.avatar,
+            }))
+          );
+        }
+      } catch {
+        /* ignore — pool just stays empty */
+      }
+    })();
+  }, []);
 
   const openCreate = () => {
     setEditingGroup(null);
@@ -223,31 +244,37 @@ export default function GroupsPage() {
     }
   };
 
-  const handleAddStudent = (groupId: string) => {
-    if (!addEmailInput.trim()) return;
-    const newStudent: Student = {
-      _id: Date.now().toString(),
-      name: addEmailInput.split("@")[0],
-      email: addEmailInput.trim(),
-    };
-    setGroups((prev) =>
-      prev.map((g) =>
-        g._id === groupId ? { ...g, students: [...g.students, newStudent] } : g
-      )
-    );
-    setAddEmailInput("");
-    toast.success("Student invitation sent");
+  // Persist a group's full member list to the database, then sync local state.
+  const saveMembers = async (group: Group, studentIds: string[], successMsg: string) => {
+    setSavingMembers(group._id);
+    try {
+      const res = await fetch(`/api/groups/${group._id}/members`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentIds }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setGroups((prev) => prev.map((g) => (g._id === group._id ? { ...g, students: json.data.group.students } : g)));
+        toast.success(successMsg);
+      } else {
+        toast.error(json.error || "Échec");
+      }
+    } catch {
+      toast.error("Échec");
+    } finally {
+      setSavingMembers(null);
+    }
   };
 
-  const handleRemoveStudent = (groupId: string, studentId: string) => {
-    setGroups((prev) =>
-      prev.map((g) =>
-        g._id === groupId
-          ? { ...g, students: g.students.filter((s) => s._id !== studentId) }
-          : g
-      )
-    );
-    toast.success("Student removed");
+  const handleAddStudent = (group: Group, student: Student) => {
+    const ids = [...group.students.map((s) => s._id), student._id];
+    saveMembers(group, ids, `${student.name} ajouté(e) au groupe`);
+  };
+
+  const handleRemoveStudent = (group: Group, studentId: string) => {
+    const ids = group.students.map((s) => s._id).filter((sid) => sid !== studentId);
+    saveMembers(group, ids, "Élève retiré du groupe");
   };
 
   return (
@@ -390,8 +417,9 @@ export default function GroupsPage() {
                             </div>
                           </div>
                           <button
-                            onClick={() => handleRemoveStudent(group._id, student._id)}
-                            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            onClick={() => handleRemoveStudent(group, student._id)}
+                            disabled={savingMembers === group._id}
+                            className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -404,27 +432,60 @@ export default function GroupsPage() {
                     </p>
                   )}
 
-                  {/* Add student by email */}
-                  <div className="flex gap-2 pt-2 border-t border-[hsl(var(--border))]">
-                    <div className="flex-1 relative">
-                      <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
-                      <Input
-                        placeholder="Add student by email..."
-                        className="pl-9"
-                        value={addEmailInput}
-                        onChange={(e) => setAddEmailInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleAddStudent(group._id);
-                        }}
-                      />
-                    </div>
-                    <Button
-                      variant="gradient"
-                      size="sm"
-                      onClick={() => handleAddStudent(group._id)}
-                    >
-                      <Plus className="h-4 w-4" /> Add
-                    </Button>
+                  {/* Assign students from your real student list */}
+                  <div className="pt-2 border-t border-[hsl(var(--border))]">
+                    {(() => {
+                      const memberIds = new Set(group.students.map((s) => s._id));
+                      const available = pool.filter((s) => !memberIds.has(s._id));
+                      const open = addOpen === group._id;
+                      return (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAddOpen(open ? null : group._id)}
+                            disabled={savingMembers === group._id}
+                          >
+                            {savingMembers === group._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                            Ajouter des élèves
+                          </Button>
+
+                          {open && (
+                            <div className="mt-3 rounded-xl border border-[hsl(var(--border))] p-2 max-h-56 overflow-y-auto space-y-1">
+                              {pool.length === 0 ? (
+                                <p className="text-xs text-[hsl(var(--muted-foreground))] p-2 text-center">
+                                  Tu n&apos;as pas encore d&apos;élèves. Accepte des demandes de tutorat ou de classe.
+                                </p>
+                              ) : available.length === 0 ? (
+                                <p className="text-xs text-[hsl(var(--muted-foreground))] p-2 text-center">
+                                  Tous tes élèves sont déjà dans ce groupe.
+                                </p>
+                              ) : (
+                                available.map((s) => (
+                                  <button
+                                    key={s._id}
+                                    type="button"
+                                    onClick={() => handleAddStudent(group, s)}
+                                    disabled={savingMembers === group._id}
+                                    className="w-full flex items-center gap-3 p-2 rounded-lg text-left hover:bg-[hsl(var(--accent))] transition-colors disabled:opacity-50"
+                                  >
+                                    <Avatar className="h-7 w-7">
+                                      <AvatarImage src={s.avatar} />
+                                      <AvatarFallback className="text-[10px]">{getInitials(s.name)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate">{s.name}</p>
+                                      <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">{s.email}</p>
+                                    </div>
+                                    <Plus className="h-4 w-4 text-[hsl(var(--primary))] shrink-0" />
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

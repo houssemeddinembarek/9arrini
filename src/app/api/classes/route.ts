@@ -45,15 +45,21 @@ export async function GET() {
         .sort({ date: 1 })
         .lean();
       const ids = classes.map((c) => c._id);
-      const confirmed = await ClassEnrollment.aggregate([
-        { $match: { classSession: { $in: ids }, status: "confirmed" } },
-        { $group: { _id: "$classSession", n: { $sum: 1 } } },
+      const counts = await ClassEnrollment.aggregate([
+        { $match: { classSession: { $in: ids }, status: { $in: ["pending", "confirmed"] } } },
+        { $group: { _id: { cls: "$classSession", status: "$status" }, n: { $sum: 1 } } },
       ]);
-      const confirmedBy: Record<string, number> = {};
-      for (const c of confirmed) confirmedBy[String(c._id)] = c.n;
+      const byClass: Record<string, { pending: number; confirmed: number }> = {};
+      for (const c of counts) {
+        const key = String(c._id.cls);
+        byClass[key] ??= { pending: 0, confirmed: 0 };
+        if (c._id.status === "pending") byClass[key].pending = c.n;
+        if (c._id.status === "confirmed") byClass[key].confirmed = c.n;
+      }
       const withCounts = classes.map((c) => ({
         ...c,
-        confirmedCount: confirmedBy[String(c._id)] ?? 0,
+        pendingCount: byClass[String(c._id)]?.pending ?? 0,
+        confirmedCount: byClass[String(c._id)]?.confirmed ?? 0,
       }));
       return NextResponse.json({ success: true, data: { classes: withCounts } });
     }

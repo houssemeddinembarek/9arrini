@@ -31,9 +31,13 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     }
 
     if (isOwnerTeacher) {
-      const enrollments = await ClassEnrollment.find({ classSession: id, status: "confirmed" })
+      // The teacher sees pending requests (to accept/decline) and confirmed students.
+      const enrollments = await ClassEnrollment.find({
+        classSession: id,
+        status: { $in: ["pending", "confirmed"] },
+      })
         .populate("student", "name email avatar")
-        .sort({ confirmedAt: -1 })
+        .sort({ status: 1, createdAt: -1 })
         .lean();
       return NextResponse.json({ success: true, data: { class: cls, enrollments } });
     }

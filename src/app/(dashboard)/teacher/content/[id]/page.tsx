@@ -118,7 +118,7 @@ function printAsPDF(item: ContentItem, htmlContent: string) {
     <div class="doc-title">${typeLabel} — ${item.subject}<br><span style="font-size:12pt">${item.title}</span></div>
   </div>
   <div id="content">${htmlContent}</div>
-  <div class="footer">Document généré par Skillora AI • Programme officiel tunisien</div>
+  <div class="footer">Document généré par Telmidhi AI • Programme officiel tunisien</div>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"><\/script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"><\/script>
   <script>

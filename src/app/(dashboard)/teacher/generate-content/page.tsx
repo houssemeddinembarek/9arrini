@@ -132,7 +132,7 @@ function structuredToMarkdown(doc: StructuredDoc): string {
   return md;
 }
 
-// ─── 9arrini Academy CSS round seal (inline SVG, for PDF) ────────────────────
+// ─── Telmidhi CSS round seal (inline SVG, for PDF) ────────────────────
 
 const SEAL_SVG = `
 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="110" height="110">
@@ -144,7 +144,7 @@ const SEAL_SVG = `
   <circle cx="100" cy="100" r="84" fill="none" stroke="#7c3aed" stroke-width="1"/>
   <circle cx="100" cy="100" r="50" fill="none" stroke="#7c3aed" stroke-width="0.8" stroke-dasharray="2 3"/>
   <text font-family="Georgia, 'Times New Roman', serif" font-size="14" font-weight="700" fill="#7c3aed" letter-spacing="2">
-    <textPath href="#circle-top" startOffset="50%" text-anchor="middle">★ 9ARRINI ACADEMY ★</textPath>
+    <textPath href="#circle-top" startOffset="50%" text-anchor="middle">★ TELMIDHI ★</textPath>
   </text>
   <text font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="600" fill="#7c3aed" letter-spacing="3">
     <textPath href="#circle-bot" startOffset="50%" text-anchor="middle">DOCUMENT OFFICIEL</textPath>
@@ -202,7 +202,7 @@ function printAsPDF(
   </style>
 </head>
 <body>
-  <div class="watermark">9ARRINI ACADEMY</div>
+  <div class="watermark">TELMIDHI</div>
   <div class="doc-header">
     <div class="seal">${SEAL_SVG}</div>
     <table>
@@ -213,7 +213,7 @@ function printAsPDF(
   </div>
   <div id="content">${htmlContent}</div>
   <div class="footer">
-    <span>Document généré par <strong>9arrini Academy</strong> • Programme officiel tunisien</span>
+    <span>Document généré par <strong>Telmidhi</strong> • Programme officiel tunisien</span>
     <span class="stamp-id">Ref: ${stampId}</span>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"><\/script>
@@ -339,6 +339,12 @@ export default function GenerateContentPage() {
   useEffect(() => {
     if (generated && katexReady && previewRef.current) renderKaTeX(previewRef.current);
   }, [generated, katexReady]);
+
+  // Open directly in the mode requested from the Content hub (?mode=ai|adapt|upload).
+  useEffect(() => {
+    const m = new URLSearchParams(window.location.search).get("mode");
+    if (m === "ai" || m === "adapt" || m === "upload") setMode(m as Mode);
+  }, []);
 
   const canGenerate = subject && level && contentType && title.trim().length >= 3;
   const isStructured = !!structured;
@@ -600,7 +606,7 @@ export default function GenerateContentPage() {
     return (
       <div className="max-w-xl space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setMode("choose")}><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push("/teacher/content")}><ArrowLeft className="h-4 w-4" /></Button>
           <h1 className="text-2xl font-bold">Importer un PDF</h1>
         </div>
 
@@ -665,7 +671,7 @@ export default function GenerateContentPage() {
     return (
       <div className="max-w-xl space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setMode("choose")}><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push("/teacher/content")}><ArrowLeft className="h-4 w-4" /></Button>
           <div>
             <h1 className="text-2xl font-bold">Adapter un PDF existant</h1>
             <p className="text-[hsl(var(--muted-foreground))] text-sm">L&apos;IA génère un document original inspiré du vôtre</p>
@@ -737,12 +743,12 @@ export default function GenerateContentPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => { setMode("choose"); setGenerated(""); setStructured(null); setSavedId(""); }}>
+        <Button variant="ghost" size="icon" onClick={() => router.push("/teacher/content")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Générateur de contenu IA</h1>
-          <p className="text-[hsl(var(--muted-foreground))] text-sm">Programme officiel tunisien • Formules LaTeX • Tampon 9arrini Academy</p>
+          <p className="text-[hsl(var(--muted-foreground))] text-sm">Programme officiel tunisien • Formules LaTeX • Tampon Telmidhi</p>
         </div>
       </div>
 
@@ -885,7 +891,7 @@ export default function GenerateContentPage() {
                   {/* Faded watermark — matches print */}
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none" aria-hidden="true">
                     <span className="text-[80pt] font-black tracking-[6px] text-[#7c3aed] opacity-[0.05] -rotate-[30deg] whitespace-nowrap" style={{ fontFamily: "Georgia, serif" }}>
-                      9ARRINI ACADEMY
+                      TELMIDHI
                     </span>
                   </div>
 
@@ -972,7 +978,7 @@ export default function GenerateContentPage() {
 
                   {/* Footer */}
                   <div className="relative z-[1] mt-7 pt-2 border-t border-gray-300 flex justify-between items-center text-[9pt] text-gray-600">
-                    <span>Document généré par <strong>9arrini Academy</strong> • Programme officiel tunisien</span>
+                    <span>Document généré par <strong>Telmidhi</strong> • Programme officiel tunisien</span>
                     <span className="font-mono text-[8pt] text-[#7c3aed] font-semibold">Ref: {stampId}</span>
                   </div>
                 </div>

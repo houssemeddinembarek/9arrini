@@ -3,6 +3,7 @@ import { RtcTokenBuilder, RtcRole } from "agora-token";
 import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Meeting from "@/models/Meeting";
+import TutoringRequest from "@/models/TutoringRequest";
 
 // Token minting needs Node crypto, not the Edge runtime.
 export const runtime = "nodejs";
@@ -37,8 +38,19 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     }
 
     const isTeacher = String(meeting.teacher) === session.userId;
-    const isStudent = (meeting.students || []).some((s) => String(s) === session.userId);
-    if (!isTeacher && !isStudent) {
+    let allowed = isTeacher || (meeting.students || []).some((s) => String(s) === session.userId);
+
+    // An accepted tutoring student may also join their teacher's meetings.
+    if (!allowed) {
+      const accepted = await TutoringRequest.findOne({
+        student: session.userId,
+        teacher: String(meeting.teacher),
+        status: "accepted",
+      }).select("_id").lean();
+      allowed = !!accepted;
+    }
+
+    if (!allowed) {
       return NextResponse.json({ error: "You are not a participant of this meeting" }, { status: 403 });
     }
 

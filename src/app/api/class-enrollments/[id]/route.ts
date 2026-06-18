@@ -7,13 +7,15 @@ import ClassEnrollment from "@/models/ClassEnrollment";
 import "@/models/ClassSession";
 import "@/models/User";
 
-// Admin confirms (payment received) or rejects a class enrollment.
-// Confirming notifies both the student and the assigned teacher.
+// The admin or the class's assigned teacher confirms (accepts the request) or
+// rejects a class enrollment. Confirming notifies the student.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "admin") return NextResponse.json({ error: "Admins only" }, { status: 403 });
+    if (session.role !== "admin" && session.role !== "teacher") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     await connectDB();
     const { id } = await params;
@@ -30,6 +32,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const cls = enrollment.classSession as unknown as { _id: unknown; title: string; teacher: unknown };
     const student = enrollment.student as unknown as { _id: unknown; name: string };
 
+    // A teacher may only act on enrollments for their own classes.
+    if (session.role === "teacher" && String(cls.teacher) !== session.userId) {
+      return NextResponse.json({ error: "Not your class" }, { status: 403 });
+    }
+
     if (action === "confirm") {
       enrollment.status = "confirmed";
       enrollment.paymentReceived = true;
@@ -39,17 +46,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // Student: you're in.
       await notifyUsers([String(student._id)], {
         title: "Enrollment confirmed",
-        message: `Payment received — you're enrolled in "${cls.title}".`,
+        message: `You've been accepted into "${cls.title}".`,
         type: "success",
         link: "/dashboard/classes",
       });
-      // Teacher: a new confirmed student (now visible to them).
-      await notifyUsers([String(cls.teacher)], {
-        title: "New student in your class",
-        message: `${student.name} joined "${cls.title}".`,
-        type: "info",
-        link: "/teacher/classes",
-      });
+      // When an admin accepts, let the teacher know the student is now on their roster.
+      if (session.role === "admin") {
+        await notifyUsers([String(cls.teacher)], {
+          title: "New student in your class",
+          message: `${student.name} joined "${cls.title}".`,
+          type: "info",
+          link: "/teacher/classes",
+        });
+      }
     } else {
       enrollment.status = "rejected";
       await enrollment.save();

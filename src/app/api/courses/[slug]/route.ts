@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import Course from "@/models/Course";
 import Enrollment from "@/models/Enrollment";
+// Registered so populate("contents") resolves the Content schema.
+import "@/models/Content";
 
 export async function GET(
   request: NextRequest,
@@ -15,7 +17,8 @@ export async function GET(
 
     const course = await Course.findOne({ slug })
       .populate("teacher", "name avatar bio expertise socialLinks")
-      .populate("lessons")
+      .populate({ path: "lessons", options: { sort: { order: 1, createdAt: 1 } } })
+      .populate("contents", "title contentType pdfUrl subject level")
       .lean();
 
     if (!course) {
@@ -28,7 +31,7 @@ export async function GET(
     if (session) {
       enrollment = await Enrollment.findOne({
         student: session.userId,
-        course: (course as any)._id,
+        course: String((course as { _id: unknown })._id),
       }).lean();
       isEnrolled = !!enrollment;
     }

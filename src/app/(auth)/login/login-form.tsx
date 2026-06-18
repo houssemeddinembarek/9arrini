@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -11,14 +11,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SocialButtons } from "@/components/auth/social-buttons";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useI18n } from "@/lib/i18n/context";
 
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
-  password: z.string().min(1, "Password is required"),
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
+type LoginForm = { email: string; password: string };
 
 export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -26,13 +23,25 @@ export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setUser } = useAuthStore();
+  const { dict } = useI18n();
+  const t = dict.auth.login;
+  const tr = dict.auth.roles;
   const from = searchParams.get("from") || "/profile";
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        email: z.string().email(t.emailInvalid),
+        password: z.string().min(1, t.passwordRequired),
+      }),
+    [t]
+  );
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
+  } = useForm<LoginForm>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: LoginForm) => {
     setLoading(true);
@@ -45,19 +54,19 @@ export default function LoginForm() {
       const json = await res.json();
 
       if (!res.ok) {
-        toast.error(json.error || "Login failed");
+        toast.error(json.error || t.failed);
         return;
       }
 
       setUser(json.data.user);
-      toast.success("Welcome back!");
+      toast.success(t.welcomeToast);
 
       const role = json.data.user.role;
       if (role === "admin") router.push("/admin");
       else if (role === "teacher") router.push("/teacher");
       else router.push(from === "/dashboard" ? "/profile" : from);
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t.generic);
     } finally {
       setLoading(false);
     }
@@ -71,43 +80,21 @@ export default function LoginForm() {
           <div className="w-12 h-12 rounded-2xl gradient-bg flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Sparkles className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold mb-1">Welcome back</h1>
-          <p className="text-[hsl(var(--muted-foreground))] text-sm">
-            Sign in to continue your learning journey
-          </p>
+          <h1 className="text-2xl font-bold mb-1">{t.title}</h1>
+          <p className="text-[hsl(var(--muted-foreground))] text-sm">{t.subtitle}</p>
         </div>
 
-        {/* Demo Accounts Banner */}
-        <div className="bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/20 rounded-xl p-4 mb-6">
-          <p className="text-xs font-semibold text-[hsl(var(--primary))] mb-2">Demo Accounts</p>
-          <div className="grid grid-cols-3 gap-2 text-xs text-[hsl(var(--muted-foreground))]">
-            <div>
-              <p className="font-medium text-[hsl(var(--foreground))]">Student</p>
-              <p>student@demo.com</p>
-              <p>demo1234</p>
-            </div>
-            <div>
-              <p className="font-medium text-[hsl(var(--foreground))]">Teacher</p>
-              <p>teacher@demo.com</p>
-              <p>demo1234</p>
-            </div>
-            <div>
-              <p className="font-medium text-[hsl(var(--foreground))]">Admin</p>
-              <p>admin@demo.com</p>
-              <p>demo1234</p>
-            </div>
-          </div>
-        </div>
+       
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email address</Label>
+            <Label htmlFor="email">{t.email}</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t.emailPlaceholder}
                 className="pl-10"
                 {...register("email")}
               />
@@ -119,12 +106,12 @@ export default function LoginForm() {
 
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t.password}</Label>
               <Link
                 href="/forgot-password"
                 className="text-xs text-[hsl(var(--primary))] hover:underline"
               >
-                Forgot password?
+                {t.forgot}
               </Link>
             </div>
             <div className="relative">
@@ -132,7 +119,7 @@ export default function LoginForm() {
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
+                placeholder={t.passwordPlaceholder}
                 className="pl-10 pr-10"
                 {...register("password")}
               />
@@ -150,14 +137,18 @@ export default function LoginForm() {
           </div>
 
           <Button type="submit" className="w-full" variant="gradient" loading={loading}>
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? t.submitting : t.submit}
           </Button>
         </form>
 
+        <div className="mt-6">
+          <SocialButtons from={from} />
+        </div>
+
         <p className="text-center text-sm text-[hsl(var(--muted-foreground))] mt-6">
-          Don&apos;t have an account?{" "}
+          {t.noAccount}{" "}
           <Link href="/register" className="text-[hsl(var(--primary))] font-medium hover:underline">
-            Create one free
+            {t.createFree}
           </Link>
         </p>
       </div>

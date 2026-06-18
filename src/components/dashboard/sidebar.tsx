@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen, LayoutDashboard, GraduationCap, Users, Settings,
   BarChart2, MessageSquare, Calendar, Brain,
-  Video, FileText, ChevronLeft, ChevronRight, LogOut, Sparkles,
-  UsersRound,
+  Video, FileText, ChevronLeft, ChevronRight, LogOut,
+  UsersRound, FileQuestion, ClipboardList,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +15,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useI18n } from "@/lib/i18n/context";
 import { getInitials, cn } from "@/lib/utils";
 
+type NavKey = keyof ReturnType<typeof useI18n>["dict"]["dashboard"]["nav"];
+
 interface NavItem {
-  label: string;
+  key: NavKey;
   href: string;
   icon: React.ElementType;
   badge?: string;
@@ -27,42 +30,44 @@ interface NavItem {
 
 // Students have no dashboard — their hub is the profile screen.
 const STUDENT_NAV: NavItem[] = [
-  { label: "Profile", href: "/profile", icon: LayoutDashboard },
-  { label: "My Courses", href: "/dashboard/my-courses", icon: BookOpen },
-  { label: "Classes", href: "/dashboard/classes", icon: GraduationCap },
-  { label: "Meetings", href: "/dashboard/meetings", icon: Video },
-  { label: "Tutoring", href: "/dashboard/tutoring", icon: Calendar },
-  { label: "AI Assistant", href: "/ai-assistant", icon: Brain },
-  { label: "Settings", href: "/profile/settings", icon: Settings },
+  { key: "profile", href: "/profile", icon: LayoutDashboard },
+  { key: "myCourses", href: "/dashboard/my-courses", icon: BookOpen },
+  { key: "classes", href: "/dashboard/classes", icon: GraduationCap },
+  { key: "assignments", href: "/dashboard/assignments", icon: ClipboardList },
+  { key: "quiz", href: "/dashboard/quizzes", icon: FileQuestion },
+  { key: "meetings", href: "/dashboard/meetings", icon: Video },
+  { key: "tutoring", href: "/dashboard/tutoring", icon: Calendar },
+  { key: "aiAssistant", href: "/ai-assistant", icon: Brain },
+  { key: "settings", href: "/profile/settings", icon: Settings },
 ];
 
 const TEACHER_NAV: NavItem[] = [
-  { label: "Dashboard", href: "/teacher", icon: LayoutDashboard },
-  { label: "My Courses", href: "/teacher/courses", icon: BookOpen },
-  { label: "Generate Content", href: "/teacher/generate-content", icon: Sparkles },
-  { label: "Content Library", href: "/teacher/content", icon: FileText },
-  { label: "Lessons", href: "/teacher/lessons", icon: Video },
-  { label: "AI Assistant", href: "/teacher/ai-assistant", icon: Brain },
-  { label: "Quizzes", href: "/teacher/quizzes", icon: GraduationCap },
-  { label: "Groups", href: "/teacher/groups", icon: UsersRound },
-  { label: "Classes", href: "/teacher/classes", icon: GraduationCap },
-  { label: "Calendar", href: "/teacher/calendar", icon: Calendar },
-  { label: "Tutoring", href: "/teacher/tutoring", icon: Video },
-  { label: "Students", href: "/teacher/students", icon: Users },
-  { label: "Analytics", href: "/teacher/analytics", icon: BarChart2 },
-  { label: "Messages", href: "/teacher/messages", icon: MessageSquare },
-  { label: "Settings", href: "/teacher/settings", icon: Settings },
+  { key: "dashboard", href: "/teacher", icon: LayoutDashboard },
+  { key: "myCourses", href: "/teacher/courses", icon: BookOpen },
+  { key: "content", href: "/teacher/content", icon: FileText },
+  { key: "lessons", href: "/teacher/lessons", icon: Video },
+  { key: "aiAssistant", href: "/teacher/ai-assistant", icon: Brain },
+  { key: "quizzes", href: "/teacher/quizzes", icon: FileQuestion },
+  { key: "groups", href: "/teacher/groups", icon: UsersRound },
+  { key: "classes", href: "/teacher/classes", icon: GraduationCap },
+  { key: "assignments", href: "/teacher/assignments", icon: ClipboardList },
+  { key: "calendar", href: "/teacher/calendar", icon: Calendar },
+  { key: "tutoring", href: "/teacher/tutoring", icon: Video },
+  { key: "students", href: "/teacher/students", icon: Users },
+  { key: "analytics", href: "/teacher/analytics", icon: BarChart2 },
+  { key: "messages", href: "/teacher/messages", icon: MessageSquare },
+  { key: "settings", href: "/teacher/settings", icon: Settings },
 ];
 
 const ADMIN_NAV: NavItem[] = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Users", href: "/admin/users", icon: Users },
-  { label: "Classes", href: "/admin/classes", icon: GraduationCap },
-  { label: "Courses", href: "/admin/courses", icon: BookOpen },
-  { label: "AI Assistant", href: "/admin/ai-assistant", icon: Brain },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart2 },
-  { label: "Reports", href: "/admin/reports", icon: FileText },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
+  { key: "dashboard", href: "/admin", icon: LayoutDashboard },
+  { key: "users", href: "/admin/users", icon: Users },
+  { key: "classes", href: "/admin/classes", icon: GraduationCap },
+  { key: "courses", href: "/admin/courses", icon: BookOpen },
+  { key: "aiAssistant", href: "/admin/ai-assistant", icon: Brain },
+  { key: "analytics", href: "/admin/analytics", icon: BarChart2 },
+  { key: "reports", href: "/admin/reports", icon: FileText },
+  { key: "settings", href: "/admin/settings", icon: Settings },
 ];
 
 interface SidebarProps {
@@ -73,6 +78,8 @@ export function Sidebar({ role = "student" }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const { dict } = useI18n();
+  const nav = dict.dashboard.nav;
 
   const navItems = role === "admin" ? ADMIN_NAV : role === "teacher" ? TEACHER_NAV : STUDENT_NAV;
 
@@ -91,15 +98,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
           collapsed ? "w-[70px]" : "w-[240px]"
         )}
       >
-        {/* Logo */}
-        <div className="flex h-16 items-center px-4 border-b border-[hsl(var(--border))] shrink-0">
-          <Link href="/" className="flex items-center gap-2 overflow-hidden">
-            <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center shrink-0 shadow">
-              <BookOpen className="h-4 w-4 text-white" />
-            </div>
-            {!collapsed && <span className="font-bold text-lg gradient-text">Telmidhi</span>}
-          </Link>
-        </div>
+       
 
         {/* Nav */}
         <ScrollArea className="flex-1 px-3 py-4">
@@ -124,7 +123,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
                         <Icon className="h-5 w-5" />
                       </Link>
                     </TooltipTrigger>
-                    <TooltipContent side="right">{item.label}</TooltipContent>
+                    <TooltipContent side="right">{nav[item.key]}</TooltipContent>
                   </Tooltip>
                 );
               }
@@ -141,7 +140,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
                   )}
                 >
                   <Icon className="h-4.5 w-4.5 shrink-0" />
-                  <span className="flex-1">{item.label}</span>
+                  <span className="flex-1">{nav[item.key]}</span>
                   {item.badge && (
                     <Badge variant="default" className="text-[10px] px-1.5 py-0">
                       {item.badge}
@@ -183,7 +182,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user?.name}</p>
                 <Badge variant="purple" className="text-[10px] capitalize px-1.5 py-0 mt-0.5">
-                  {user?.role}
+                  {user?.role ? dict.dashboard.roleBadge[user.role] : ""}
                 </Badge>
               </div>
               <Button

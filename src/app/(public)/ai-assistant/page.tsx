@@ -3,17 +3,22 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Brain, Send, Plus, Copy, ThumbsUp, ThumbsDown, Sparkles,
-  BookOpen, FileText, Lightbulb, GraduationCap, RotateCcw,
-  ChevronRight, Mic, Paperclip,
+  BookOpen, FileText, GraduationCap, PenLine, ClipboardCheck, ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SUBJECTS } from "@/lib/tunisia-education";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 interface Message {
   id: string;
@@ -22,43 +27,66 @@ interface Message {
   timestamp: Date;
 }
 
+// Monotonic message ids, generated outside render to stay pure.
+let messageSeq = 0;
+const nextMessageId = () => `m${++messageSeq}`;
+
 const QUICK_PROMPTS = [
-  { icon: BookOpen, label: "Explain a concept", prompt: "Explain the concept of closures in JavaScript with examples" },
-  { icon: GraduationCap, label: "Generate quiz", prompt: "Generate a 5-question multiple choice quiz on React hooks" },
-  { icon: FileText, label: "Summarize content", prompt: "Summarize the key points of this lesson about REST APIs" },
-  { icon: Lightbulb, label: "Study plan", prompt: "Create a 30-day study plan to learn Python from scratch" },
-  { icon: RotateCcw, label: "Practice problems", prompt: "Give me 3 practice problems on array manipulation in JavaScript" },
-  { icon: Sparkles, label: "Career advice", prompt: "What skills should I focus on to become a full-stack developer in 2024?" },
+  { icon: BookOpen, label: "Expliquer une leçon", prompt: "Explique-moi simplement le théorème de Pythagore avec un exemple." },
+  { icon: PenLine, label: "Me donner un exercice", prompt: "Donne-moi un exercice adapté à mon niveau sur la leçon en cours, sans la correction tout de suite." },
+  { icon: ClipboardCheck, label: "Corriger mon devoir", prompt: "Voici mon exercice et ma réponse, corrige-les en m'expliquant mes erreurs étape par étape :\n\n" },
+  { icon: FileText, label: "Résumer une leçon", prompt: "Fais-moi un résumé clair et structuré de cette leçon :\n\n" },
+  { icon: ListChecks, label: "Préparer le Bac", prompt: "Propose-moi un sujet type Bac avec son corrigé détaillé." },
+  { icon: GraduationCap, label: "M'interroger", prompt: "Pose-moi 5 questions pour réviser la leçon, puis corrige mes réponses." },
 ];
 
 const INITIAL_MESSAGE: Message = {
   id: "0",
   role: "assistant",
-  content: `Hi! I'm **Aria**, your AI study assistant on Skillora 🎓
+  content: `Salut ! Je suis **Aria**, ton assistant scolaire sur Telmidhi 🎓
 
-I can help you:
-- 📚 **Explain concepts** from your courses
-- 🧠 **Generate quizzes** to test your knowledge
-- 📝 **Summarize lessons** and PDFs
-- 💡 **Answer questions** about programming, design, data science, and more
-- 🗺️ **Create study plans** tailored to your goals
+Je suis là pour t'aider dans tes études (collège et lycée) :
+- 📚 **Expliquer une leçon** ou une notion difficile
+- ✏️ **Te donner des exercices** adaptés à ton niveau
+- ✅ **Corriger tes devoirs** en t'expliquant tes erreurs
+- 📝 **Résumer une leçon** ou un texte
+- 🎯 **Préparer tes examens** et le Baccalauréat
 
-What would you like to learn today?`,
+Choisis ta **matière** en haut, puis pose ta question. Sur quoi veux-tu travailler aujourd'hui ?`,
   timestamp: new Date(),
 };
 
-function MessageContent({ content }: { content: string }) {
-  const parts = content.split(/(\*\*.*?\*\*)/g);
+// Assistant replies are markdown + LaTeX (maths). We render them with KaTeX so
+// formulas show properly instead of raw "$...$" symbols. User messages stay as
+// plain text to preserve the line breaks of anything they paste.
+function MessageContent({ content, role }: { content: string; role: "user" | "assistant" }) {
+  if (role === "user") {
+    return <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>;
+  }
   return (
-    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-      {parts.map((part, i) =>
-        part.startsWith("**") && part.endsWith("**") ? (
-          <strong key={i}>{part.slice(2, -2)}</strong>
-        ) : (
-          <span key={i}>{part}</span>
-        )
+    <div
+      className={cn(
+        "text-sm leading-relaxed space-y-2 break-words",
+        "[&_p]:my-0",
+        "[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1 [&_li]:my-0.5",
+        "[&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-2 [&_h1]:mb-1",
+        "[&_h2]:text-[0.95rem] [&_h2]:font-semibold [&_h2]:mt-2 [&_h2]:mb-1",
+        "[&_h3]:font-semibold [&_h3]:mt-1.5",
+        "[&_strong]:font-semibold [&_a]:text-[hsl(var(--primary))] [&_a]:underline",
+        "[&_blockquote]:border-l-2 [&_blockquote]:border-[hsl(var(--border))] [&_blockquote]:pl-3 [&_blockquote]:text-[hsl(var(--muted-foreground))]",
+        "[&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em]",
+        "[&_pre]:rounded-lg [&_pre]:bg-black/10 [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0",
+        "[&_table]:w-full [&_table]:my-2 [&_th]:text-left [&_th]:border-b [&_th]:border-[hsl(var(--border))] [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 [&_td]:border-b [&_td]:border-[hsl(var(--border))]/50",
+        "[&_.katex-display]:my-2 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden"
       )}
-    </p>
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -66,10 +94,11 @@ export default function AIAssistantPage() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conversations, setConversations] = useState([
-    { id: "1", title: "JavaScript Closures", time: "2h ago" },
-    { id: "2", title: "React Hooks Guide", time: "Yesterday" },
-    { id: "3", title: "Python Study Plan", time: "2 days ago" },
+  const [subject, setSubject] = useState("Général");
+  const [conversations] = useState([
+    { id: "1", title: "Équations du second degré", time: "2h" },
+    { id: "2", title: "Résumé : la photosynthèse", time: "Hier" },
+    { id: "3", title: "Correction devoir de français", time: "Il y a 2 j" },
   ]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -82,11 +111,16 @@ export default function AIAssistantPage() {
     if (!text || loading) return;
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: nextMessageId(),
       role: "user",
       content: text,
       timestamp: new Date(),
     };
+
+    // Send recent turns (excluding the initial greeting) so the chat keeps context.
+    const history = messages
+      .filter((m) => m.id !== "0")
+      .map((m) => ({ role: m.role, content: m.content }));
 
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -96,16 +130,16 @@ export default function AIAssistantPage() {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, context: subject, history }),
       });
       const json = await res.json();
 
       const assistantMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: nextMessageId(),
         role: "assistant",
         content: json.success
           ? json.data.message
-          : "I'm having trouble responding right now. Please try again!",
+          : "Je n'arrive pas à répondre pour le moment. Réessaie dans un instant !",
         timestamp: new Date(),
       };
 
@@ -114,9 +148,9 @@ export default function AIAssistantPage() {
       setMessages((prev) => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
+          id: nextMessageId(),
           role: "assistant",
-          content: "Connection error. Please check your internet and try again.",
+          content: "Erreur de connexion. Vérifie ta connexion internet et réessaie.",
           timestamp: new Date(),
         },
       ]);
@@ -134,7 +168,7 @@ export default function AIAssistantPage() {
 
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
-    toast.success("Copied to clipboard!");
+    toast.success("Copié dans le presse-papiers !");
   };
 
   return (
@@ -144,13 +178,13 @@ export default function AIAssistantPage() {
         <div className="w-72 border-r border-[hsl(var(--border))] hidden lg:flex flex-col bg-[hsl(var(--card))]">
           <div className="p-4 border-b border-[hsl(var(--border))]">
             <Button variant="gradient" className="w-full" onClick={() => setMessages([INITIAL_MESSAGE])}>
-              <Plus className="h-4 w-4" /> New Conversation
+              <Plus className="h-4 w-4" /> Nouvelle conversation
             </Button>
           </div>
 
           <div className="p-3">
             <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-2 px-2">
-              Recent
+              Récent
             </p>
             <div className="space-y-1">
               {conversations.map((conv) => (
@@ -170,9 +204,9 @@ export default function AIAssistantPage() {
 
           <div className="mt-auto p-4 border-t border-[hsl(var(--border))]">
             <div className="rounded-xl bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/20 p-4">
-              <p className="text-xs font-semibold text-[hsl(var(--primary))] mb-1">Pro Tip</p>
+              <p className="text-xs font-semibold text-[hsl(var(--primary))] mb-1">Astuce</p>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                Ask Aria to generate quizzes from your course material to accelerate retention.
+                Colle ton exercice ou ta leçon dans le chat : Aria te le corrige ou te le résume étape par étape.
               </p>
             </div>
           </div>
@@ -187,16 +221,29 @@ export default function AIAssistantPage() {
                 <Brain className="h-4 w-4 text-white" />
               </div>
               <div>
-                <p className="font-semibold text-sm">Aria AI</p>
+                <p className="font-semibold text-sm">Aria · Assistant scolaire</p>
                 <div className="flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">Online</span>
+                  <span className="text-xs text-[hsl(var(--muted-foreground))]">En ligne</span>
                 </div>
               </div>
             </div>
-            <Badge variant="purple" className="hidden sm:flex gap-1">
-              <Sparkles className="h-3 w-3" /> Powered by AI
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="purple" className="hidden sm:flex gap-1">
+                <Sparkles className="h-3 w-3" /> Éducation
+              </Badge>
+              <Select value={subject} onValueChange={setSubject}>
+                <SelectTrigger className="h-8 w-40 text-xs">
+                  <SelectValue placeholder="Matière" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Général">Toutes matières</SelectItem>
+                  {SUBJECTS.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Messages */}
@@ -229,7 +276,7 @@ export default function AIAssistantPage() {
                           : "gradient-bg text-white rounded-tr-sm"
                       )}
                     >
-                      <MessageContent content={msg.content} />
+                      <MessageContent content={msg.content} role={msg.role} />
                     </div>
 
                     {msg.role === "assistant" && (
@@ -275,7 +322,7 @@ export default function AIAssistantPage() {
           {messages.length <= 1 && (
             <div className="px-4 pb-2">
               <div className="max-w-3xl mx-auto">
-                <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2">Try asking...</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2">Essaie de demander…</p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {QUICK_PROMPTS.map(({ icon: Icon, label, prompt }) => (
                     <button
@@ -296,12 +343,9 @@ export default function AIAssistantPage() {
           <div className="border-t border-[hsl(var(--border))] p-4 bg-[hsl(var(--background))]/95 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto">
               <div className="relative flex items-end gap-2 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2 focus-within:border-[hsl(var(--primary))]/50 transition-colors">
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 self-end text-[hsl(var(--muted-foreground))]">
-                  <Paperclip className="h-4 w-4" />
-                </Button>
                 <Textarea
-                  placeholder="Ask Aria anything about your studies..."
-                  className="flex-1 border-0 focus-visible:ring-0 resize-none bg-transparent min-h-[40px] max-h-32 py-1.5 px-0 text-sm"
+                  placeholder="Pose ta question, colle ton exercice ou ta leçon…"
+                  className="flex-1 border-0 focus-visible:ring-0 resize-none bg-transparent min-h-[40px] max-h-32 py-1.5 px-2 text-sm"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -318,7 +362,7 @@ export default function AIAssistantPage() {
                 </Button>
               </div>
               <p className="text-center text-[10px] text-[hsl(var(--muted-foreground))] mt-2">
-                Aria can make mistakes. Always verify important information.
+                Aria peut se tromper. Vérifie toujours les informations importantes.
               </p>
             </div>
           </div>

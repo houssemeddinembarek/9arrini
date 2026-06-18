@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Star, Clock, Calendar, DollarSign, Search, Filter,
-  Video, CheckCircle2, Users, ArrowRight, BookOpen,
+  Star, Calendar, DollarSign, Search, Clock,
+  Video, CheckCircle2, Users, ArrowRight, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,86 +13,99 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getInitials } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/context";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { toast } from "sonner";
 
-const TUTORS = [
-  {
-    id: "1",
-    name: "Sarah Johnson",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80",
-    specialty: "Web Development",
-    bio: "10+ years experience. Specialized in React, Node.js, and full-stack architecture.",
-    rating: 4.9,
-    reviews: 234,
-    students: 892,
-    price: 45,
-    duration: 60,
-    available: ["Mon", "Tue", "Thu", "Fri"],
-    tags: ["React", "Node.js", "TypeScript", "MongoDB"],
-    isVerified: true,
-  },
-  {
-    id: "2",
-    name: "Dr. Marcus Chen",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&q=80",
-    specialty: "AI & Machine Learning",
-    bio: "PhD from MIT. Bridging the gap between academic AI research and practical applications.",
-    rating: 4.8,
-    reviews: 178,
-    students: 456,
-    price: 75,
-    duration: 60,
-    available: ["Wed", "Thu", "Sat"],
-    tags: ["Python", "TensorFlow", "Deep Learning", "NLP"],
-    isVerified: true,
-  },
-  {
-    id: "3",
-    name: "Emily Park",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&q=80",
-    specialty: "UI/UX Design",
-    bio: "Award-winning designer. Helping students build stunning portfolios and land design jobs.",
-    rating: 4.7,
-    reviews: 312,
-    students: 1200,
-    price: 35,
-    duration: 60,
-    available: ["Mon", "Tue", "Wed", "Fri"],
-    tags: ["Figma", "Design Systems", "User Research", "Prototyping"],
-    isVerified: true,
-  },
-  {
-    id: "4",
-    name: "Dr. Priya Sharma",
-    avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&q=80",
-    specialty: "Data Science",
-    bio: "Published data scientist. Kaggle Grandmaster. Making data science accessible to all.",
-    rating: 4.9,
-    reviews: 156,
-    students: 523,
-    price: 60,
-    duration: 60,
-    available: ["Tue", "Thu", "Sat", "Sun"],
-    tags: ["Python", "Pandas", "SQL", "Machine Learning"],
-    isVerified: true,
-  },
-];
+interface Teacher {
+  _id: string;
+  name: string;
+  avatar?: string;
+  specialty: string;
+  subjects: string[];
+  level: string;
+  bio: string;
+  rating: number;
+  students: number;
+  price: number;
+  availableDays: string[];
+}
 
 export default function TutoringPage() {
   const [search, setSearch] = useState("");
   const [specialty, setSpecialty] = useState("all");
   const [priceRange, setPriceRange] = useState("all");
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reqStatus, setReqStatus] = useState<Record<string, string>>({});
+  const [reserving, setReserving] = useState<string | null>(null);
   const router = useRouter();
+  const { dict } = useI18n();
+  const t = dict.tutoring;
+  const { user } = useAuthStore();
 
-  const filtered = TUTORS.filter((t) => {
-    const matchSearch = t.name.toLowerCase().includes(search.toLowerCase()) ||
-      t.specialty.toLowerCase().includes(search.toLowerCase()) ||
-      t.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
-    const matchSpec = specialty === "all" || t.specialty === specialty;
-    const matchPrice = priceRange === "all" ||
-      (priceRange === "low" && t.price <= 40) ||
-      (priceRange === "mid" && t.price > 40 && t.price <= 60) ||
-      (priceRange === "high" && t.price > 60);
+  useEffect(() => {
+    fetch("/api/teachers")
+      .then((r) => r.json())
+      .then((j) => { if (j.success) setTeachers(j.data.teachers); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  // For a signed-in student, know which teachers they've already reserved.
+  useEffect(() => {
+    if (user?.role !== "student") return;
+    fetch("/api/tutoring/requests")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j.success) return;
+        const map: Record<string, string> = {};
+        for (const req of j.data.requests) {
+          const tid = req.teacher?._id ?? req.teacher;
+          if (tid) map[String(tid)] = req.status;
+        }
+        setReqStatus(map);
+      })
+      .catch(() => {});
+  }, [user?.role]);
+
+  const reserve = async (teacherId: string) => {
+    if (!user) { router.push("/login?from=/tutoring"); return; }
+    if (user.role !== "student") { toast.error(t.loginToReserve); return; }
+    setReserving(teacherId);
+    try {
+      const res = await fetch("/api/tutoring/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId }),
+      });
+      const json = await res.json();
+      if (res.status === 401) { router.push("/login?from=/tutoring"); return; }
+      if (json.success) {
+        setReqStatus((p) => ({ ...p, [teacherId]: json.data?.status || "pending" }));
+        toast.success(t.reserveSent);
+      } else {
+        toast.error(json.error || "Échec");
+      }
+    } catch {
+      toast.error("Échec");
+    } finally {
+      setReserving(null);
+    }
+  };
+
+  const filtered = teachers.filter((tutor) => {
+    const q = search.toLowerCase();
+    const matchSearch =
+      tutor.name.toLowerCase().includes(q) ||
+      tutor.specialty.toLowerCase().includes(q) ||
+      tutor.subjects.some((s) => s.toLowerCase().includes(q));
+    const matchSpec = specialty === "all" || tutor.specialty === specialty || tutor.subjects.includes(specialty);
+    const matchPrice =
+      priceRange === "all" ||
+      (priceRange === "low" && tutor.price <= 30) ||
+      (priceRange === "mid" && tutor.price > 30 && tutor.price <= 40) ||
+      (priceRange === "high" && tutor.price > 40);
     return matchSearch && matchSpec && matchPrice;
   });
 
@@ -101,20 +114,20 @@ export default function TutoringPage() {
         {/* Header */}
         <div className="bg-gradient-to-b from-[hsl(var(--muted))]/50 to-transparent py-12 border-b border-[hsl(var(--border))]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <Badge variant="purple" className="mb-4">1-on-1 Tutoring</Badge>
+            <Badge variant="purple" className="mb-4">{t.badge}</Badge>
             <h1 className="text-4xl sm:text-5xl font-bold mb-4">
-              Learn with <span className="gradient-text">expert tutors</span>
+              {t.titleBefore} <span className="gradient-text">{t.titleHighlight}</span>
             </h1>
             <p className="text-xl text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto mb-8">
-              Book personalized sessions with verified experts. Learn at your pace with focused, individual attention.
+              {t.subtitle}
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-[hsl(var(--muted-foreground))]">
               {[
-                { icon: Video, text: "Video sessions via Zoom" },
-                { icon: CheckCircle2, text: "Verified expert tutors" },
-                { icon: Calendar, text: "Flexible scheduling" },
-                { icon: DollarSign, text: "Transparent pricing" },
+                { icon: Video, text: t.features.video },
+                { icon: CheckCircle2, text: t.features.verified },
+                { icon: Calendar, text: t.features.flexible },
+                { icon: DollarSign, text: t.features.pricing },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} className="flex items-center gap-2">
                   <Icon className="h-4 w-4 text-[hsl(var(--primary))]" />
@@ -131,7 +144,7 @@ export default function TutoringPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
               <Input
-                placeholder="Search by name, subject, or skill..."
+                placeholder={t.searchPlaceholder}
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -139,34 +152,42 @@ export default function TutoringPage() {
             </div>
             <Select value={specialty} onValueChange={setSpecialty}>
               <SelectTrigger className="w-full sm:w-52">
-                <SelectValue placeholder="Specialty" />
+                <SelectValue placeholder={t.subjectPlaceholder} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Specialties</SelectItem>
-                <SelectItem value="Web Development">Web Development</SelectItem>
-                <SelectItem value="AI & Machine Learning">AI & Machine Learning</SelectItem>
-                <SelectItem value="UI/UX Design">UI/UX Design</SelectItem>
-                <SelectItem value="Data Science">Data Science</SelectItem>
+                <SelectItem value="all">{t.allSubjects}</SelectItem>
+                <SelectItem value="Mathématiques">Mathématiques</SelectItem>
+                <SelectItem value="Physique-Chimie">Physique-Chimie</SelectItem>
+                <SelectItem value="Sciences de la vie et de la terre (SVT)">SVT</SelectItem>
+                <SelectItem value="Français & Philosophie">Français & Philosophie</SelectItem>
+                <SelectItem value="Anglais">Anglais</SelectItem>
               </SelectContent>
             </Select>
             <Select value={priceRange} onValueChange={setPriceRange}>
               <SelectTrigger className="w-full sm:w-44">
-                <SelectValue placeholder="Price" />
+                <SelectValue placeholder={t.pricePlaceholder} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any Price</SelectItem>
-                <SelectItem value="low">Under $40/hr</SelectItem>
-                <SelectItem value="mid">$40–$60/hr</SelectItem>
-                <SelectItem value="high">$60+/hr</SelectItem>
+                <SelectItem value="all">{t.allPrices}</SelectItem>
+                <SelectItem value="low">{t.priceLow}</SelectItem>
+                <SelectItem value="mid">{t.priceMid}</SelectItem>
+                <SelectItem value="high">{t.priceHigh}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Grid */}
+          {loading ? (
+            <div className="flex items-center justify-center py-20 text-[hsl(var(--muted-foreground))]">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-[hsl(var(--muted-foreground))] py-16">{t.noResults}</p>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filtered.map((tutor) => (
               <div
-                key={tutor.id}
+                key={tutor._id}
                 className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 hover:shadow-xl hover:border-[hsl(var(--primary))]/30 transition-all"
               >
                 <div className="flex items-start gap-4 mb-5">
@@ -179,58 +200,73 @@ export default function TutoringPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-bold text-lg">{tutor.name}</h3>
-                      {tutor.isVerified && (
-                        <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />
-                      )}
+                      <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />
                     </div>
-                    <Badge variant="purple" className="mb-2">{tutor.specialty}</Badge>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {tutor.specialty && <Badge variant="purple">{tutor.specialty}</Badge>}
+                      {tutor.level && <span className="text-xs text-[hsl(var(--muted-foreground))]">{tutor.level}</span>}
+                    </div>
                     <div className="flex items-center gap-3 text-sm">
                       <div className="flex items-center gap-1">
                         <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                        <span className="font-medium">{tutor.rating}</span>
-                        <span className="text-[hsl(var(--muted-foreground))]">({tutor.reviews})</span>
+                        <span className="font-medium">{tutor.rating > 0 ? tutor.rating.toFixed(1) : "—"}</span>
                       </div>
                       <div className="flex items-center gap-1 text-[hsl(var(--muted-foreground))]">
                         <Users className="h-3.5 w-3.5" />
-                        {tutor.students} students
+                        {tutor.students} {t.students}
                       </div>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-2xl font-bold">${tutor.price}</p>
-                    <p className="text-xs text-[hsl(var(--muted-foreground))]">per hour</p>
+                    <p className="text-2xl font-bold">{tutor.price} DT</p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">{t.perHour}</p>
                   </div>
                 </div>
 
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4 line-clamp-2">
-                  {tutor.bio}
-                </p>
+                {tutor.bio && (
+                  <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4 line-clamp-2">
+                    {tutor.bio}
+                  </p>
+                )}
 
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {tutor.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                  ))}
-                </div>
+                {tutor.subjects.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {tutor.subjects.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between pt-4 border-t border-[hsl(var(--border))]">
                   <div className="flex items-center gap-1.5 text-xs text-[hsl(var(--muted-foreground))]">
                     <Calendar className="h-3.5 w-3.5" />
-                    Available: {tutor.available.join(", ")}
+                    {tutor.availableDays.length > 0 ? `${t.available} ${tutor.availableDays.join(", ")}` : ""}
                   </div>
-                  <Button
-                    variant="gradient"
-                    size="sm"
-                    onClick={() => {
-                      toast.success(`Booking session with ${tutor.name}...`);
-                      router.push(`/dashboard/tutoring`);
-                    }}
-                  >
-                    Book Session <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                  </Button>
+                  {reqStatus[tutor._id] === "accepted" ? (
+                    <Link href="/dashboard/tutoring">
+                      <Button variant="outline" size="sm">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> {t.requestAccepted}
+                      </Button>
+                    </Link>
+                  ) : reqStatus[tutor._id] === "pending" ? (
+                    <Button variant="outline" size="sm" disabled>
+                      <Clock className="h-3.5 w-3.5" /> {t.requestPending}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="gradient"
+                      size="sm"
+                      disabled={reserving === tutor._id}
+                      onClick={() => reserve(tutor._id)}
+                    >
+                      {reserving === tutor._id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <>{t.book} <ArrowRight className="h-3.5 w-3.5 ml-1" /></>}
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+          )}
         </div>
     </main>
   );

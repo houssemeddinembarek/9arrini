@@ -467,7 +467,7 @@ export default function CalendarPage() {
               <p className="text-sm font-semibold text-[hsl(var(--primary))]">Reminders</p>
             </div>
             <p className="text-xs text-[hsl(var(--muted-foreground))]">
-              Reminders pop up automatically when you open Skillora before a scheduled meeting.
+              Reminders pop up automatically when you open Telmidhi before a scheduled meeting.
             </p>
           </div>
         </div>
@@ -553,6 +553,16 @@ export default function CalendarPage() {
               )}
             </div>
 
+            {selectedMeeting.type !== "in-person" && (
+              <Button
+                variant="gradient"
+                className="w-full"
+                onClick={() => { window.location.href = `/meetings/${selectedMeeting._id}`; }}
+              >
+                <Video className="h-4 w-4" /> Join meeting room
+              </Button>
+            )}
+
             <div className="flex gap-3 pt-2">
               <Button
                 variant="outline"
@@ -562,7 +572,7 @@ export default function CalendarPage() {
                 <Trash2 className="h-4 w-4" /> Delete
               </Button>
               <Button
-                variant="gradient"
+                variant="outline"
                 className="flex-1"
                 onClick={() => setSelectedMeeting(null)}
               >

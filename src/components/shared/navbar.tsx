@@ -75,6 +75,9 @@ export function Navbar() {
 
   return (
     <header
+      // Keep the navbar layout left-to-right in every language (incl. Arabic);
+      // only the labels translate, the item positions stay the same.
+      dir="ltr"
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
         scrolled || !isHome

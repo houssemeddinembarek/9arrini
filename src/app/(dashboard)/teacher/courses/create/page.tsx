@@ -1,41 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  BookOpen, ArrowLeft, ArrowRight, Plus, X, Upload, Check,
+  ArrowLeft, ArrowRight, Plus, X, Upload, Check,
+  Video, FileText, Loader2, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { SUBJECTS, CLASS_LEVELS, TRIMESTERS } from "@/lib/tunisia-education";
 
-const CATEGORIES = [
-  "Web Development", "Mobile Dev", "AI & ML", "Data Science",
-  "Design", "Business", "Marketing", "Programming", "DevOps", "Cybersecurity",
-];
+const CATEGORIES = SUBJECTS;
 
 const schema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(20, "Description must be at least 20 characters"),
   shortDescription: z.string().max(200).optional(),
-  category: z.string().min(1, "Please select a category"),
+  category: z.string().min(1, "Please select a matière"),
+  classe: z.string().min(1, "Please select a classe"),
+  trimestre: z.string().min(1, "Please select a trimestre"),
   level: z.enum(["beginner", "intermediate", "advanced"]),
   isFree: z.boolean(),
   price: z.number().min(0).optional(),
   language: z.string(),
 });
 
-type CourseForm = z.infer<typeof schema>;
+interface LibVideo {
+  _id: string;
+  title: string;
+  duration?: number;
+  thumbnailUrl?: string;
+}
+interface LibPdf {
+  _id: string;
+  title: string;
+  contentType: string;
+}
 
 const STEPS = ["Basic Info", "Details", "Curriculum", "Pricing"];
+
+function fmtDuration(sec?: number): string {
+  if (!sec) return "";
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export default function CreateCoursePage() {
   const [step, setStep] = useState(0);
@@ -44,11 +63,39 @@ export default function CreateCoursePage() {
   const [tagInput, setTagInput] = useState("");
   const [objectives, setObjectives] = useState<string[]>([""]);
   const [requirements, setRequirements] = useState<string[]>([""]);
+  // Curriculum: the teacher's library + what they attach to this course.
+  const [videos, setVideos] = useState<LibVideo[]>([]);
+  const [pdfs, setPdfs] = useState<LibPdf[]>([]);
+  const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
+  const [selectedContents, setSelectedContents] = useState<string[]>([]);
+  const [libLoading, setLibLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [lRes, cRes] = await Promise.all([
+          fetch("/api/lessons?type=video"),
+          fetch("/api/content"),
+        ]);
+        const lJson = await lRes.json();
+        const cJson = await cRes.json();
+        if (lJson.success) setVideos(lJson.data.items);
+        if (cJson.success) setPdfs(cJson.data.items);
+      } catch {
+        /* ignore — library just shows empty */
+      } finally {
+        setLibLoading(false);
+      }
+    })();
+  }, []);
+
+  const toggle = (id: string, list: string[], setList: (v: string[]) => void) =>
+    setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { level: "beginner" as const, isFree: true, price: 0, language: "English", title: "", description: "", category: "" },
+    defaultValues: { level: "beginner" as const, isFree: true, price: 0, language: "English", title: "", description: "", category: "", classe: "", trimestre: "" },
   });
 
   const isFree = watch("isFree");
@@ -66,7 +113,14 @@ export default function CreateCoursePage() {
       const res = await fetch("/api/courses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, tags, objectives, requirements }),
+        body: JSON.stringify({
+          ...data,
+          tags,
+          objectives,
+          requirements,
+          lessonIds: selectedLessons,
+          contentIds: selectedContents,
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -145,10 +199,10 @@ export default function CreateCoursePage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Category *</Label>
+                  <Label>Matière *</Label>
                   <Select onValueChange={(v) => setValue("category", v)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder="Choisir une matière" />
                     </SelectTrigger>
                     <SelectContent>
                       {CATEGORIES.map((cat) => (
@@ -159,8 +213,44 @@ export default function CreateCoursePage() {
                   {errors.category && <p className="text-xs text-red-500">{errors.category.message}</p>}
                 </div>
                 <div className="space-y-1.5">
+                  <Label>Classe *</Label>
+                  <Select onValueChange={(v) => setValue("classe", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir une classe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLASS_LEVELS.map((stage) => (
+                        <SelectGroup key={stage.stage}>
+                          <SelectLabel>{stage.stage}</SelectLabel>
+                          {stage.classes.map((c) => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.classe && <p className="text-xs text-red-500">{errors.classe.message}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Trimestre *</Label>
+                  <Select onValueChange={(v) => setValue("trimestre", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir un trimestre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TRIMESTERS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.trimestre && <p className="text-xs text-red-500">{errors.trimestre.message}</p>}
+                </div>
+                <div className="space-y-1.5">
                   <Label>Level *</Label>
-                  <Select defaultValue="beginner" onValueChange={(v) => setValue("level", v as any)}>
+                  <Select defaultValue="beginner" onValueChange={(v) => setValue("level", v as "beginner" | "intermediate" | "advanced")}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="beginner">Beginner</SelectItem>
@@ -264,20 +354,102 @@ export default function CreateCoursePage() {
           )}
 
           {step === 2 && (
-            <div className="text-center py-8 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--muted))] flex items-center justify-center mx-auto">
-                <BookOpen className="h-8 w-8 text-[hsl(var(--muted-foreground))]" />
-              </div>
+            <>
               <div>
-                <h3 className="font-semibold text-lg">Curriculum Editor</h3>
-                <p className="text-[hsl(var(--muted-foreground))] text-sm mt-1 max-w-md mx-auto">
-                  After creating the course, you&apos;ll be redirected to the full curriculum editor where you can add video lessons, PDFs, quizzes, and assignments.
+                <h2 className="text-lg font-semibold">Curriculum</h2>
+                <p className="text-[hsl(var(--muted-foreground))] text-sm">
+                  Attach one or more video lessons and PDF documents from your library. You can add more anytime.
                 </p>
               </div>
-              <div className="flex items-center justify-center gap-2 text-sm text-[hsl(var(--muted-foreground))]">
-                <Upload className="h-4 w-4" /> Supports video, PDF, and text lessons
-              </div>
-            </div>
+
+              {libLoading ? (
+                <div className="flex items-center justify-center py-10 text-[hsl(var(--muted-foreground))]">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <>
+                  {/* Video lessons */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2"><Video className="h-4 w-4" /> Video lessons ({selectedLessons.length} selected)</Label>
+                      <Link href="/teacher/lessons/new" className="text-xs text-[hsl(var(--primary))] hover:underline">+ Upload a video</Link>
+                    </div>
+                    {videos.length === 0 ? (
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] rounded-xl border border-dashed border-[hsl(var(--border))] p-4 text-center">
+                        No videos in your library yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {videos.map((v) => {
+                          const checked = selectedLessons.includes(v._id);
+                          return (
+                            <button
+                              key={v._id}
+                              type="button"
+                              onClick={() => toggle(v._id, selectedLessons, setSelectedLessons)}
+                              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                                checked ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5" : "border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40"
+                              }`}
+                            >
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${checked ? "gradient-bg" : "border border-[hsl(var(--border))]"}`}>
+                                {checked && <Check className="h-3 w-3 text-white" />}
+                              </div>
+                              <Video className="h-4 w-4 text-[hsl(var(--muted-foreground))] shrink-0" />
+                              <span className="flex-1 text-sm font-medium truncate">{v.title}</span>
+                              {v.duration ? (
+                                <span className="text-xs text-[hsl(var(--muted-foreground))] flex items-center gap-1 shrink-0">
+                                  <Clock className="h-3 w-3" /> {fmtDuration(v.duration)}
+                                </span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PDF documents */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2"><FileText className="h-4 w-4" /> PDF documents ({selectedContents.length} selected)</Label>
+                      <Link href="/teacher/content" className="text-xs text-[hsl(var(--primary))] hover:underline">+ Create content</Link>
+                    </div>
+                    {pdfs.length === 0 ? (
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] rounded-xl border border-dashed border-[hsl(var(--border))] p-4 text-center">
+                        No PDF content in your library yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {pdfs.map((p) => {
+                          const checked = selectedContents.includes(p._id);
+                          return (
+                            <button
+                              key={p._id}
+                              type="button"
+                              onClick={() => toggle(p._id, selectedContents, setSelectedContents)}
+                              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                                checked ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5" : "border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40"
+                              }`}
+                            >
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${checked ? "gradient-bg" : "border border-[hsl(var(--border))]"}`}>
+                                {checked && <Check className="h-3 w-3 text-white" />}
+                              </div>
+                              <FileText className="h-4 w-4 text-[hsl(var(--muted-foreground))] shrink-0" />
+                              <span className="flex-1 text-sm font-medium truncate">{p.title}</span>
+                              <Badge variant="secondary" className="text-[10px] shrink-0 capitalize">{p.contentType.replace(/_/g, " ")}</Badge>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))]">
+                    <Upload className="h-3.5 w-3.5" /> Attachments are optional — you can publish now and add more later.
+                  </div>
+                </>
+              )}
+            </>
           )}
 
           {step === 3 && (

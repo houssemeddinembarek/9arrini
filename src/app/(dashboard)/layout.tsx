@@ -6,17 +6,23 @@ import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Navbar } from "@/components/shared/navbar";
 import { Button } from "@/components/ui/button";
+import { MeetingAlerts } from "@/components/meetings/meeting-alerts";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useI18n } from "@/lib/i18n/context";
+import { getDir } from "@/lib/i18n/config";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { user, setUser, isLoading, setLoading } = useAuthStore();
+  const { locale } = useI18n();
+  const dir = getDir(locale);
   const router = useRouter();
 
   useEffect(() => {
     const checkAuth = async () => {
-      if (user) return;
-      setLoading(true);
+      // Only block the UI with a spinner when we have no cached user yet.
+      // Otherwise revalidate in the background so fields like isApproved stay fresh.
+      if (!user) setLoading(true);
       try {
         const res = await fetch("/api/auth/me");
         const json = await res.json();
@@ -26,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           router.push("/login");
         }
       } catch {
-        router.push("/login");
+        if (!user) router.push("/login");
       } finally {
         setLoading(false);
       }
@@ -52,8 +58,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Shared site navbar (fixed top-0, h-16) */}
       <Navbar />
 
-      {/* Sidebar + content sit below the navbar */}
-      <div className="flex flex-1 pt-16 overflow-hidden">
+      {/* Background watcher: raises join alerts for upcoming meetings */}
+      <MeetingAlerts />
+
+      {/* Sidebar + content sit below the navbar.
+          Force LTR on this row so the sidebar keeps the same position in every
+          language; the page content restores its own direction below. */}
+      <div dir="ltr" className="flex flex-1 pt-16 overflow-hidden">
         {/* Desktop sidebar */}
         <div className="hidden md:flex h-full shrink-0">
           <Sidebar role={role} />
@@ -81,7 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Button>
             <span className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Menu</span>
           </div>
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+          <main dir={dir} className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
         </div>
       </div>
     </div>

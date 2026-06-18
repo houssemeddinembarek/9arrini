@@ -19,7 +19,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     await connectDB();
     const { id } = await params;
 
-    const cls = await ClassSession.findById(id).lean<{ _id: unknown; title: string; status: string } | null>();
+    const cls = await ClassSession.findById(id).lean<{ _id: unknown; title: string; status: string; teacher: unknown } | null>();
     if (!cls) return NextResponse.json({ error: "Class not found" }, { status: 404 });
     if (cls.status !== "open") {
       return NextResponse.json({ error: "This class is not open for enrollment" }, { status: 409 });
@@ -43,6 +43,13 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
         link: "/admin/classes",
       }
     );
+    // The assigned teacher can accept the request themselves.
+    await notifyUsers([String(cls.teacher)], {
+      title: "New class join request",
+      message: `${session.name} requested to join "${cls.title}".`,
+      type: "info",
+      link: "/teacher/classes",
+    });
 
     return NextResponse.json({ success: true, message: "Request sent. You'll be enrolled once payment is confirmed." }, { status: 201 });
   } catch (error) {

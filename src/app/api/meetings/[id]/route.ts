@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Meeting from "@/models/Meeting";
+import TutoringRequest from "@/models/TutoringRequest";
 
 // Fetch a single meeting. Accessible to the teacher who owns it or any invited student.
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -19,9 +20,21 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
     if (!meeting) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
 
-    const isTeacher = String(meeting.teacher?._id ?? meeting.teacher) === session.userId;
-    const isStudent = (meeting.students || []).some((s) => String(s) === session.userId);
-    if (!isTeacher && !isStudent) {
+    const teacherId = String(meeting.teacher?._id ?? meeting.teacher);
+    const isTeacher = teacherId === session.userId;
+    let allowed = isTeacher || (meeting.students || []).some((s) => String(s) === session.userId);
+
+    // An accepted tutoring student may also view their teacher's meeting.
+    if (!allowed) {
+      const accepted = await TutoringRequest.findOne({
+        student: session.userId,
+        teacher: teacherId,
+        status: "accepted",
+      }).select("_id").lean();
+      allowed = !!accepted;
+    }
+
+    if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -16,6 +16,7 @@ export interface ICourseDocument extends Document {
   status: "draft" | "published" | "archived";
   teacher: mongoose.Types.ObjectId;
   lessons: mongoose.Types.ObjectId[];
+  contents: mongoose.Types.ObjectId[];
   enrollmentCount: number;
   rating: number;
   reviewCount: number;
@@ -43,6 +44,8 @@ const CourseSchema = new Schema<ICourseDocument>(
     status: { type: String, enum: ["draft", "published", "archived"], default: "draft" },
     teacher: { type: Schema.Types.ObjectId, ref: "User", required: true },
     lessons: [{ type: Schema.Types.ObjectId, ref: "Lesson" }],
+    // PDF documents attached to the course (from the teacher's content library).
+    contents: [{ type: Schema.Types.ObjectId, ref: "Content" }],
     enrollmentCount: { type: Number, default: 0 },
     rating: { type: Number, default: 0, min: 0, max: 5 },
     reviewCount: { type: Number, default: 0 },
