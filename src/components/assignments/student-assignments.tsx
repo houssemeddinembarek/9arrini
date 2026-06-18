@@ -9,6 +9,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { ContentBody } from "@/components/content/content-body";
 import { formatDate } from "@/lib/utils";
 
 interface StudentAssignment {
@@ -22,9 +26,65 @@ interface StudentAssignment {
     title: string;
     instructions?: string;
     dueDate: string;
-    content?: { title: string; pdfUrl?: string };
+    content?: { title: string; pdfUrl?: string; body?: string; subject?: string; level?: string };
     teacher?: { name: string };
   };
+}
+
+// The student must be able to clearly read the énoncé before doing their work.
+// Shows the exercice text (rendered with math) and/or the imported PDF inline.
+function EnonceViewer({ a }: { a: StudentAssignment }) {
+  const [open, setOpen] = useState(false);
+  const content = a.assignment.content;
+  const hasBody = !!content?.body && content.body.trim().length > 0;
+  const hasPdf = !!content?.pdfUrl;
+  if (!hasBody && !hasPdf) return null;
+
+  return (
+    <>
+      <Button variant="outline" size="sm" className="shrink-0" onClick={() => setOpen(true)}>
+        <FileText className="h-4 w-4" /> Voir l&apos;énoncé
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{content?.title || a.assignment.title}</DialogTitle>
+            {(content?.subject || content?.level) && (
+              <DialogDescription>
+                {[content?.subject, content?.level].filter(Boolean).join(" • ")}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          {a.assignment.instructions && (
+            <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-3 text-sm">
+              <p className="font-semibold mb-1 flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-[hsl(var(--primary))]" /> Consignes
+              </p>
+              <p className="whitespace-pre-line text-[hsl(var(--muted-foreground))]">{a.assignment.instructions}</p>
+            </div>
+          )}
+
+          {hasBody && <ContentBody body={content!.body!} />}
+
+          {hasPdf && (
+            <div className="space-y-2">
+              <iframe
+                src={content!.pdfUrl}
+                title="Énoncé PDF"
+                className="w-full h-[60vh] rounded-xl border border-[hsl(var(--border))]"
+              />
+              <a href={content!.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-block">
+                <Button variant="ghost" size="sm">
+                  <ExternalLink className="h-4 w-4" /> Ouvrir dans un nouvel onglet
+                </Button>
+              </a>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 function SubmitBox({ a, onDone }: { a: StudentAssignment; onDone: (imgs: string[]) => void }) {
@@ -128,11 +188,7 @@ export function StudentAssignments() {
                     {a.assignment.teacher?.name && <span>Prof : {a.assignment.teacher.name}</span>}
                   </div>
                 </div>
-                {a.assignment.content?.pdfUrl && (
-                  <a href={a.assignment.content.pdfUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                    <Button variant="outline" size="sm"><FileText className="h-4 w-4" /> Énoncé <ExternalLink className="h-3 w-3" /></Button>
-                  </a>
-                )}
+                <EnonceViewer a={a} />
               </div>
 
               {/* My uploaded work */}

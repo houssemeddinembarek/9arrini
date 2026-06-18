@@ -13,10 +13,16 @@ interface Meeting {
   status: "scheduled" | "cancelled" | "completed";
 }
 
+interface MeetingResponse {
+  meeting: Meeting;
+  isTeacher: boolean;
+}
+
 export default function MeetingRoomPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [meeting, setMeeting] = useState<Meeting | null>(null);
+  const [isTeacher, setIsTeacher] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -24,8 +30,11 @@ export default function MeetingRoomPage() {
     fetch(`/api/meetings/${id}`)
       .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
       .then(({ ok, j }) => {
-        if (ok && j.success) setMeeting(j.data.meeting);
-        else setError(j.error || "Meeting not available");
+        if (ok && j.success) {
+          const data = j.data as MeetingResponse;
+          setMeeting(data.meeting);
+          setIsTeacher(!!data.isTeacher);
+        } else setError(j.error || "Meeting not available");
       })
       .catch(() => setError("Meeting not available"))
       .finally(() => setLoading(false));
@@ -55,18 +64,21 @@ export default function MeetingRoomPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="h-full flex flex-col min-h-0">
       <Link
         href="/dashboard/meetings"
-        className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] mb-4"
+        className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] mb-2 shrink-0"
       >
         <ArrowLeft className="h-4 w-4" /> Back to meetings
       </Link>
-      <AgoraRoom
-        tokenUrl={`/api/meetings/${meeting._id}/token`}
-        title={meeting.title}
-        backHref="/dashboard/meetings"
-      />
+      <div className="flex-1 min-h-0">
+        <AgoraRoom
+          tokenUrl={`/api/meetings/${meeting._id}/token`}
+          title={meeting.title}
+          isTeacher={isTeacher}
+          backHref="/dashboard/meetings"
+        />
+      </div>
     </div>
   );
 }

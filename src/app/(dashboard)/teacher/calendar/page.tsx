@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Clock, Video, MapPin,
   Users, Bell, Calendar, Trash2, Link2,
@@ -61,38 +61,24 @@ const COLOR_CLASSES: Record<string, string> = {
   teal: "bg-teal-500",
 };
 
-const SAMPLE_MEETINGS: Meeting[] = [
-  {
-    _id: "m1",
-    title: "Math Revision Session",
-    description: "Cover chapters 3 and 4",
-    group: { _id: "g1", name: "Math — 3ème", color: "purple" },
-    date: new Date().toISOString(),
-    startTime: "10:00",
-    endTime: "11:00",
-    type: "online",
-    meetingUrl: "https://zoom.us/j/123456",
-    reminder: { enabled: true, minutesBefore: 30 },
-    status: "scheduled",
-  },
-  {
-    _id: "m2",
-    title: "Science Exam Prep",
-    group: { _id: "g2", name: "Sciences — Bac", color: "green" },
-    date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    startTime: "14:00",
-    endTime: "15:30",
-    type: "in-person",
-    location: "Room 204",
-    reminder: { enabled: true, minutesBefore: 60 },
-    status: "scheduled",
-  },
-];
+interface Student {
+  _id: string;
+  name: string;
+  email: string;
+}
+
+interface ClassOption {
+  _id: string;
+  title: string;
+  subject: string;
+}
 
 interface FormData {
   title: string;
   description: string;
   groupId: string;
+  classId: string;
+  studentIds: string[];
   date: string;
   startTime: string;
   endTime: string;
@@ -108,6 +94,8 @@ const EMPTY_FORM: FormData = {
   title: "",
   description: "",
   groupId: "",
+  classId: "",
+  studentIds: [],
   date: TODAY.toISOString().split("T")[0],
   startTime: "09:00",
   endTime: "10:00",
@@ -122,71 +110,59 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
-  const [remindersChecked, setRemindersChecked] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [meetRes, groupRes] = await Promise.all([
-        fetch(`/api/meetings?month=${currentDate.getMonth() + 1}&year=${currentDate.getFullYear()}`),
-        fetch("/api/groups"),
-      ]);
-      const meetJson = await meetRes.json();
-      const groupJson = await groupRes.json();
-      if (meetJson.success && meetJson.data.meetings.length > 0) {
-        setMeetings(meetJson.data.meetings);
-      } else {
-        setMeetings(SAMPLE_MEETINGS);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/meetings?month=${currentDate.getMonth() + 1}&year=${currentDate.getFullYear()}`);
+        const json = await res.json();
+        if (active) setMeetings(json.success ? json.data.meetings : []);
+      } catch {
+        if (active) setMeetings([]);
       }
-      if (groupJson.success && groupJson.data.groups.length > 0) {
-        setGroups(groupJson.data.groups.map((g: { _id: string; name: string; color: string }) => ({
-          _id: g._id,
-          name: g.name,
-          color: g.color,
-        })));
-      }
-    } catch {
-      setMeetings(SAMPLE_MEETINGS);
-    }
+    })();
+    return () => { active = false; };
   }, [currentDate]);
 
+  // Recipients to choose from: groups, classes, and individual students.
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Check reminders once on mount
-  useEffect(() => {
-    if (remindersChecked) return;
-    setRemindersChecked(true);
-
-    const fired: string[] = JSON.parse(localStorage.getItem("skillora-reminders-fired") || "[]");
-    const now = new Date();
-
-    SAMPLE_MEETINGS.forEach((meeting) => {
-      if (!meeting.reminder.enabled) return;
-      if (fired.includes(meeting._id)) return;
-
-      const meetingDate = new Date(meeting.date);
-      const [h, m] = meeting.startTime.split(":").map(Number);
-      meetingDate.setHours(h, m, 0, 0);
-
-      const diffMs = meetingDate.getTime() - now.getTime();
-      const diffMin = diffMs / 60000;
-
-      if (diffMin > 0 && diffMin <= meeting.reminder.minutesBefore) {
-        toast.info(
-          `Reminder: "${meeting.title}" starts in ${Math.round(diffMin)} min`,
-          { duration: 8000 }
-        );
-        fired.push(meeting._id);
-        localStorage.setItem("skillora-reminders-fired", JSON.stringify(fired));
+    (async () => {
+      try {
+        const [groupRes, classRes, studentRes] = await Promise.all([
+          fetch("/api/groups"),
+          fetch("/api/classes"),
+          fetch("/api/teacher/students"),
+        ]);
+        const [groupJson, classJson, studentJson] = await Promise.all([
+          groupRes.json(), classRes.json(), studentRes.json(),
+        ]);
+        if (groupJson.success) {
+          setGroups((groupJson.data.groups || []).map((g: { _id: string; name: string; color: string }) => ({
+            _id: g._id, name: g.name, color: g.color,
+          })));
+        }
+        if (classJson.success) {
+          setClasses((classJson.data.classes || []).map((c: { _id: string; title: string; subject: string }) => ({
+            _id: c._id, title: c.title, subject: c.subject,
+          })));
+        }
+        if (studentJson.success) {
+          setStudents((studentJson.data.students || []).map((s: { _id: string; name: string; email: string }) => ({
+            _id: s._id, name: s.name, email: s.email,
+          })));
+        }
+      } catch {
+        // best-effort; the form still works with whatever loaded
       }
-    });
-  }, [remindersChecked]);
+    })();
+  }, []);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -208,7 +184,6 @@ export default function CalendarPage() {
 
   const openCreateForDate = (day: number) => {
     const d = new Date(year, month, day);
-    setSelectedDate(d);
     setForm({
       ...EMPTY_FORM,
       date: d.toISOString().split("T")[0],
@@ -228,6 +203,8 @@ export default function CalendarPage() {
         title: form.title,
         description: form.description,
         group: form.groupId || undefined,
+        classId: form.classId || undefined,
+        studentIds: form.studentIds,
         date: form.date,
         startTime: form.startTime,
         endTime: form.endTime,
@@ -242,32 +219,14 @@ export default function CalendarPage() {
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      if (res.ok) {
-        setMeetings((prev) => [...prev, json.data.meeting]);
-        toast.success("Meeting scheduled!");
-      } else {
-        throw new Error(json.error);
-      }
-    } catch {
-      const optimistic: Meeting = {
-        _id: Date.now().toString(),
-        title: form.title,
-        description: form.description,
-        group: groups.find((g) => g._id === form.groupId),
-        date: new Date(form.date).toISOString(),
-        startTime: form.startTime,
-        endTime: form.endTime,
-        type: form.type,
-        meetingUrl: form.meetingUrl,
-        location: form.location,
-        reminder: { enabled: form.reminderEnabled, minutesBefore: form.reminderMinutes },
-        status: "scheduled",
-      };
-      setMeetings((prev) => [...prev, optimistic]);
+      if (!res.ok) throw new Error(json.error || "Could not schedule the meeting");
+      setMeetings((prev) => [...prev, json.data.meeting]);
       toast.success("Meeting scheduled!");
+      setShowModal(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not schedule the meeting");
     } finally {
       setSaving(false);
-      setShowModal(false);
     }
   };
 
@@ -467,7 +426,7 @@ export default function CalendarPage() {
               <p className="text-sm font-semibold text-[hsl(var(--primary))]">Reminders</p>
             </div>
             <p className="text-xs text-[hsl(var(--muted-foreground))]">
-              Reminders pop up automatically when you open Telmidhi before a scheduled meeting.
+              An email reminder is sent to every participant before the meeting starts, and an in-app alert pops up when it&apos;s about to begin.
             </p>
           </div>
         </div>
@@ -620,30 +579,82 @@ export default function CalendarPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Date *</Label>
-                  <Input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  />
+              <div className="space-y-1.5">
+                <Label>Date *</Label>
+                <Input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                />
+              </div>
+
+              {/* Who's invited — combine a group, a class, and/or hand-picked students. */}
+              <div className="rounded-xl border border-[hsl(var(--border))] p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-[hsl(var(--primary))]" />
+                  <span className="text-sm font-medium">Participants</span>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Group</Label>
-                  <select
-                    value={form.groupId}
-                    onChange={(e) => setForm({ ...form, groupId: e.target.value })}
-                    className="w-full h-10 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30"
-                  >
-                    <option value="">No group</option>
-                    {groups.map((g) => (
-                      <option key={g._id} value={g._id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Group</Label>
+                    <select
+                      value={form.groupId}
+                      onChange={(e) => setForm({ ...form, groupId: e.target.value })}
+                      className="w-full h-10 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30"
+                    >
+                      <option value="">No group</option>
+                      {groups.map((g) => (
+                        <option key={g._id} value={g._id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Class</Label>
+                    <select
+                      value={form.classId}
+                      onChange={(e) => setForm({ ...form, classId: e.target.value })}
+                      className="w-full h-10 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30"
+                    >
+                      <option value="">No class</option>
+                      {classes.map((c) => (
+                        <option key={c._id} value={c._id}>{c.title}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
+                {students.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Specific students {form.studentIds.length > 0 && `(${form.studentIds.length})`}</Label>
+                    <div className="max-h-36 overflow-y-auto rounded-xl border border-[hsl(var(--border))] divide-y divide-[hsl(var(--border))]">
+                      {students.map((s) => {
+                        const checked = form.studentIds.includes(s._id);
+                        return (
+                          <label key={s._id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-[hsl(var(--accent))]">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setForm((f) => ({
+                                  ...f,
+                                  studentIds: e.target.checked
+                                    ? [...f.studentIds, s._id]
+                                    : f.studentIds.filter((id) => id !== s._id),
+                                }))
+                              }
+                            />
+                            <span className="truncate">{s.name}</span>
+                            <span className="ml-auto text-xs text-[hsl(var(--muted-foreground))] truncate">{s.email}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  Leave all empty to create a meeting just for yourself.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

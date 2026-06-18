@@ -5,6 +5,8 @@ import { connectDB } from "@/lib/mongodb";
 import { notifyUsers } from "@/lib/notifications";
 import Meeting from "@/models/Meeting";
 import Group from "@/models/Group";
+import ClassSession from "@/models/ClassSession";
+import ClassEnrollment from "@/models/ClassEnrollment";
 import TutoringRequest from "@/models/TutoringRequest";
 
 export async function GET(request: NextRequest) {
@@ -70,14 +72,19 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { title, description, group, date, startTime, endTime, type, location, reminder } = body;
+    const {
+      title, description, group, classId, studentIds,
+      date, startTime, endTime, type, meetingUrl, location, reminder,
+    } = body;
 
     if (!title || !date || !startTime) {
       return NextResponse.json({ error: "Title, date, and start time are required" }, { status: 400 });
     }
 
-    // Resolve the invited students from the chosen group (teacher-owned).
-    let students: string[] = [];
+    // Recipients come from any combination of: a group, a class's confirmed
+    // students, and individually picked students — de-duplicated.
+    const recipients = new Set<string>();
+
     if (group) {
       const grp = await Group.findOne({ _id: group, teacher: session.userId })
         .select("students")
@@ -85,19 +92,40 @@ export async function POST(request: NextRequest) {
       if (!grp) {
         return NextResponse.json({ error: "Group not found" }, { status: 404 });
       }
-      students = (grp.students || []).map((s) => String(s));
+      (grp.students || []).forEach((s) => recipients.add(String(s)));
     }
+
+    if (classId) {
+      const cls = await ClassSession.findOne({ _id: classId, teacher: session.userId })
+        .select("_id")
+        .lean<{ _id: unknown } | null>();
+      if (!cls) {
+        return NextResponse.json({ error: "Class not found" }, { status: 404 });
+      }
+      const enrolled = await ClassEnrollment.find({ classSession: classId, status: "confirmed" })
+        .select("student")
+        .lean<{ student: unknown }[]>();
+      enrolled.forEach((e) => recipients.add(String(e.student)));
+    }
+
+    if (Array.isArray(studentIds)) {
+      studentIds.forEach((s: string) => recipients.add(String(s)));
+    }
+
+    const students = [...recipients];
 
     const meeting = await Meeting.create({
       title,
       description: description || "",
       group: group || undefined,
+      classSession: classId || undefined,
       students,
       date: new Date(date),
       startTime,
       endTime: endTime || "",
       type: type || "online",
       channelName: `meeting_${randomUUID().replace(/-/g, "")}`,
+      meetingUrl: meetingUrl || "",
       location: location || "",
       reminder: reminder || { enabled: true, minutesBefore: 30 },
       teacher: session.userId,

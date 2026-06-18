@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
-import { adminAuth } from "@/lib/firebase-admin";
+import { getAdminAuth } from "@/lib/firebase-admin";
 import { signToken } from "@/lib/jwt";
 import User from "@/models/User";
 import { z } from "zod";
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the Firebase ID token — this is what makes the identity trustworthy.
-    const decoded = await adminAuth.verifyIdToken(parsed.data.idToken);
+    const decoded = await getAdminAuth().verifyIdToken(parsed.data.idToken);
     const email = decoded.email?.toLowerCase();
     if (!email) {
       return NextResponse.json(

@@ -48,7 +48,7 @@ export async function GET() {
       .populate({
         path: "assignment",
         populate: [
-          { path: "content", select: "title contentType pdfUrl" },
+          { path: "content", select: "title contentType pdfUrl body subject level" },
           { path: "teacher", select: "name avatar" },
         ],
       })

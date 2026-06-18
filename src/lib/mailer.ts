@@ -23,6 +23,34 @@ export async function sendMail(opts: { to: string; subject: string; html: string
   await getTransporter().sendMail({ from, ...opts });
 }
 
+// Reminder email sent shortly before a meeting starts.
+export function meetingReminderEmail(
+  name: string,
+  meeting: { title: string; date: Date; startTime: string; minutesBefore: number; joinUrl: string; type: string; location?: string },
+): { subject: string; html: string } {
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || "Telmidhi";
+  const when = new Date(meeting.date).toLocaleDateString("fr-FR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+  const isOnline = meeting.type !== "in-person";
+  return {
+    subject: `${appName} — Rappel : "${meeting.title}" dans ${meeting.minutesBefore} min`,
+    html: `
+      <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+        <h2 style="margin:0 0 8px">Ta réunion commence bientôt</h2>
+        <p style="color:#555">Bonjour ${name || ""},</p>
+        <p style="color:#555">Petit rappel : <strong>"${meeting.title}"</strong> démarre dans environ ${meeting.minutesBefore} minutes.</p>
+        <div style="background:#f4f4f5;border-radius:12px;padding:16px;margin:16px 0;color:#333">
+          <p style="margin:0 0 4px"><strong>${when}</strong> à <strong>${meeting.startTime}</strong></p>
+          ${meeting.location ? `<p style="margin:0;color:#666">📍 ${meeting.location}</p>` : ""}
+        </div>
+        ${isOnline ? `<a href="${meeting.joinUrl}" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Rejoindre la réunion</a>` : ""}
+        <p style="color:#999;font-size:13px;margin-top:20px">— L'équipe ${appName}</p>
+      </div>
+    `,
+  };
+}
+
 // Branded email for the password-reset verification code.
 export function passwordResetEmail(name: string, code: string): { subject: string; html: string } {
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "Telmidhi";

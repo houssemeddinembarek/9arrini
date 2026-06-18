@@ -5,6 +5,7 @@ export interface IMeetingDocument extends Document {
   description?: string;
   teacher: mongoose.Types.ObjectId;
   group?: mongoose.Types.ObjectId;
+  classSession?: mongoose.Types.ObjectId;
   students: mongoose.Types.ObjectId[];
   date: Date;
   startTime: string;
@@ -14,6 +15,7 @@ export interface IMeetingDocument extends Document {
   meetingUrl?: string;
   location?: string;
   reminder: { enabled: boolean; minutesBefore: number };
+  reminderSentAt?: Date;
   status: "scheduled" | "cancelled" | "completed";
 }
 
@@ -23,6 +25,7 @@ const MeetingSchema = new Schema<IMeetingDocument>(
     description: { type: String, trim: true, default: "" },
     teacher: { type: Schema.Types.ObjectId, ref: "User", required: true },
     group: { type: Schema.Types.ObjectId, ref: "Group" },
+    classSession: { type: Schema.Types.ObjectId, ref: "ClassSession" },
     students: [{ type: Schema.Types.ObjectId, ref: "User" }],
     date: { type: Date, required: true },
     startTime: { type: String, required: true },
@@ -36,6 +39,8 @@ const MeetingSchema = new Schema<IMeetingDocument>(
       enabled: { type: Boolean, default: true },
       minutesBefore: { type: Number, default: 30 },
     },
+    // Set once the reminder email has gone out, so the cron never sends twice.
+    reminderSentAt: { type: Date },
     status: { type: String, enum: ["scheduled", "cancelled", "completed"], default: "scheduled" },
   },
   { timestamps: true }
