@@ -5,6 +5,11 @@ import { signToken } from "@/lib/jwt";
 import User from "@/models/User";
 import { z } from "zod";
 
+// Firebase Admin uses Node crypto and must only run per-request, never during
+// the build's page-data collection.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const schema = z.object({ idToken: z.string().min(10, "Missing token") });
 
 // Firebase sign_in_provider id → our internal provider name.
