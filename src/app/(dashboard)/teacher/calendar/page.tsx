@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { MeetingHistory } from "@/components/meetings/meeting-history";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, toDateInputValue } from "@/lib/utils";
 
 interface Group {
   _id: string;
@@ -96,7 +97,7 @@ const EMPTY_FORM: FormData = {
   groupId: "",
   classId: "",
   studentIds: [],
-  date: TODAY.toISOString().split("T")[0],
+  date: toDateInputValue(TODAY),
   startTime: "09:00",
   endTime: "10:00",
   type: "online",
@@ -177,8 +178,10 @@ export default function CalendarPage() {
 
   const getMeetingsForDay = (day: number) => {
     return meetings.filter((m) => {
+      // Dates are stored as UTC midnight of the intended day — read them in UTC
+      // so a meeting never lands in the wrong calendar cell.
       const d = new Date(m.date);
-      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+      return d.getUTCFullYear() === year && d.getUTCMonth() === month && d.getUTCDate() === day;
     });
   };
 
@@ -186,7 +189,7 @@ export default function CalendarPage() {
     const d = new Date(year, month, day);
     setForm({
       ...EMPTY_FORM,
-      date: d.toISOString().split("T")[0],
+      date: toDateInputValue(d),
     });
     setSelectedMeeting(null);
     setShowModal(true);
@@ -259,7 +262,7 @@ export default function CalendarPage() {
         <Button
           variant="gradient"
           onClick={() => {
-            setForm({ ...EMPTY_FORM, date: new Date().toISOString().split("T")[0] });
+            setForm({ ...EMPTY_FORM, date: toDateInputValue(new Date()) });
             setSelectedMeeting(null);
             setShowModal(true);
           }}
@@ -431,6 +434,9 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {/* History of past meetings */}
+      <MeetingHistory />
 
       {/* Meeting detail modal */}
       {selectedMeeting && !showModal && (

@@ -8,6 +8,7 @@ import Group from "@/models/Group";
 import ClassSession from "@/models/ClassSession";
 import ClassEnrollment from "@/models/ClassEnrollment";
 import TutoringRequest from "@/models/TutoringRequest";
+import { isMeetingEnded } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,28 +21,40 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get("year");
     const upcoming = searchParams.get("upcoming");
     const recorded = searchParams.get("recorded");
+    const past = searchParams.get("past");
 
-    // Teachers the student has been accepted by — they see those teachers' meetings.
-    const acceptedTeachers = await TutoringRequest.find({
-      student: session.userId,
-      status: "accepted",
-    })
-      .select("teacher")
-      .lean<{ teacher: unknown }[]>();
-    const teacherIds = acceptedTeachers.map((r) => r.teacher);
-
-    // A user sees meetings they teach, are invited to, or whose teacher accepted them.
-    const filter: Record<string, unknown> = {
-      $or: [
-        { teacher: session.userId },
-        { students: session.userId },
-        ...(teacherIds.length ? [{ teacher: { $in: teacherIds } }] : []),
-      ],
-    };
+    // Admins see the whole platform's history; everyone else is scoped to the
+    // meetings they teach, are invited to, or whose teacher accepted them.
+    const seeAll = session.role === "admin" && !!past;
+    let filter: Record<string, unknown> = {};
+    if (!seeAll) {
+      const acceptedTeachers = await TutoringRequest.find({
+        student: session.userId,
+        status: "accepted",
+      })
+        .select("teacher")
+        .lean<{ teacher: unknown }[]>();
+      const teacherIds = acceptedTeachers.map((r) => r.teacher);
+      filter = {
+        $or: [
+          { teacher: session.userId },
+          { students: session.userId },
+          ...(teacherIds.length ? [{ teacher: { $in: teacherIds } }] : []),
+        ],
+      };
+    }
 
     if (recorded) {
       // Meetings that have a saved recording — newest replay first.
       filter.recordingUrl = { $nin: [null, ""] };
+    } else if (past) {
+      // History: everything up to the end of today (the precise "has ended"
+      // check happens in JS below, since startTime is stored as an "HH:MM" string).
+      const startTomorrow = new Date();
+      startTomorrow.setHours(0, 0, 0, 0);
+      startTomorrow.setDate(startTomorrow.getDate() + 1);
+      filter.date = { $lt: startTomorrow };
+      filter.status = { $ne: "cancelled" };
     } else if (upcoming) {
       // Future / today's meetings, soonest first — used by the alert poller.
       filter.date = { $gte: new Date(new Date().setHours(0, 0, 0, 0)) };
@@ -52,12 +65,19 @@ export async function GET(request: NextRequest) {
       filter.date = { $gte: start, $lte: end };
     }
 
-    const meetings = await Meeting.find(filter)
+    let meetings = await Meeting.find(filter)
       .populate("group", "name color")
       .populate("teacher", "name avatar")
-      .sort(recorded ? { recordedAt: -1 } : { date: 1, startTime: 1 })
-      .limit(upcoming ? 20 : 200)
+      .sort(recorded ? { recordedAt: -1 } : past ? { date: -1, startTime: -1 } : { date: 1, startTime: 1 })
+      .limit(past ? 300 : upcoming ? 20 : 200)
       .lean();
+
+    if (past) {
+      // Keep only meetings whose end time has actually passed.
+      meetings = meetings
+        .filter((m) => isMeetingEnded(m.date as Date, m.startTime as string, (m.endTime as string) || undefined))
+        .slice(0, 100);
+    }
 
     return NextResponse.json({ success: true, data: { meetings } });
   } catch (error) {

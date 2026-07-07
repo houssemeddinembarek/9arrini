@@ -26,6 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentAssignments } from "@/components/assignments/student-assignments";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useDict } from "@/lib/i18n/context";
 import { getInitials, cn, isMeetingEnded } from "@/lib/utils";
 import { SUBJECTS, CLASS_LEVELS, WEEKDAYS } from "@/lib/tunisia-education";
 import { toast } from "sonner";
@@ -188,18 +189,19 @@ interface UpcomingMeeting {
 // has ended (played in place so the student stays on this screen), or a disabled
 // "Terminé" when there's nothing to replay.
 function MeetingAction({ m }: { m: UpcomingMeeting }) {
+  const t = useDict().profile.meetings;
   const [playing, setPlaying] = useState(false);
 
   if (m.type === "in-person") return null;
 
   if (isMeetingEnded(m.date, m.startTime, m.endTime)) {
     if (!m.recordingUrl) {
-      return <Button size="sm" variant="outline" className="shrink-0" disabled>Terminé</Button>;
+      return <Button size="sm" variant="outline" className="shrink-0" disabled>{t.ended}</Button>;
     }
     return (
       <>
         <Button size="sm" variant="outline" className="shrink-0" onClick={() => setPlaying(true)}>
-          <PlayCircle className="h-3.5 w-3.5" /> Enregistrement
+          <PlayCircle className="h-3.5 w-3.5" /> {t.recording}
         </Button>
         {playing && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setPlaying(false)}>
@@ -207,7 +209,7 @@ function MeetingAction({ m }: { m: UpcomingMeeting }) {
             <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between gap-3 mb-2">
                 <h3 className="text-white font-semibold truncate">{m.title}</h3>
-                <button onClick={() => setPlaying(false)} title="Fermer" className="text-white/80 hover:text-white shrink-0">
+                <button onClick={() => setPlaying(false)} title={t.close} className="text-white/80 hover:text-white shrink-0">
                   <XCircle className="h-6 w-6" />
                 </button>
               </div>
@@ -220,8 +222,8 @@ function MeetingAction({ m }: { m: UpcomingMeeting }) {
   }
 
   return (
-    <Link href={`/meetings/${m._id}`} className="shrink-0">
-      <Button size="sm" variant="gradient"><Video className="h-3.5 w-3.5" /> Rejoindre</Button>
+    <Link href={`/profile/meetings/${m._id}`} className="shrink-0">
+      <Button size="sm" variant="gradient"><Video className="h-3.5 w-3.5" /> {t.join}</Button>
     </Link>
   );
 }
@@ -233,16 +235,18 @@ interface TutoringReservation {
   teacher?: { _id: string; name: string; avatar?: string };
 }
 
-// Maps a reservation status to the visual progress shown to the student.
-const RESERVATION_STEPS = ["Demande envoyée", "En attente du prof", "Réponse reçue"];
+// Maps a reservation status to the visual progress shown to the student. Labels
+// are resolved from the active dictionary at render time (see RESERVATION_STEP_KEYS).
+const RESERVATION_STEP_KEYS = ["sent", "waiting", "replied"] as const;
 function reservationProgress(status: TutoringReservation["status"]) {
-  if (status === "accepted") return { value: 100, step: 3, label: "Accepté", tone: "success" as const, Icon: CheckCircle2 };
-  if (status === "rejected") return { value: 100, step: 3, label: "Refusé", tone: "destructive" as const, Icon: XCircle };
-  return { value: 50, step: 2, label: "En attente", tone: "warning" as const, Icon: Hourglass };
+  if (status === "accepted") return { value: 100, step: 3, statusKey: "accepted" as const, tone: "success" as const, Icon: CheckCircle2 };
+  if (status === "rejected") return { value: 100, step: 3, statusKey: "rejected" as const, tone: "destructive" as const, Icon: XCircle };
+  return { value: 50, step: 2, statusKey: "waiting" as const, tone: "warning" as const, Icon: Hourglass };
 }
 
 export default function ProfilePage() {
   const { user, setUser, logout } = useAuthStore();
+  const t = useDict().profile;
   const [saving, setSaving] = useState(false);
   const [section, setSection] = useState<"overview" | "courses" | "assignments" | "tutoring" | "meetings" | "profile">("overview");
   const isStudent = !user?.role || user.role === "student";
@@ -319,12 +323,12 @@ export default function ProfilePage() {
       if (json.success) {
         setProfile((p) => (p ? { ...p, avatar: json.data.avatar } : p));
         if (user) setUser({ ...user, avatar: json.data.avatar });
-        toast.success("Photo de profil mise à jour");
+        toast.success(t.toasts.avatarUpdated);
       } else {
-        toast.error(json.error || "Échec du téléversement");
+        toast.error(json.error || t.toasts.uploadFailed);
       }
     } catch {
-      toast.error("Une erreur est survenue");
+      toast.error(t.toasts.genericError);
     } finally {
       setUploadingAvatar(false);
     }
@@ -507,22 +511,22 @@ export default function ProfilePage() {
       const json = await res.json();
       if (res.ok) {
         setUser({ ...user, name: data.name });
-        toast.success("Profile updated successfully!");
+        toast.success(t.toasts.updated);
       } else {
-        toast.error(json.error || "Update failed");
+        toast.error(json.error || t.toasts.updateFailed);
       }
     } catch {
-      toast.error("Something went wrong");
+      toast.error(t.toasts.somethingWrong);
     } finally {
       setSaving(false);
     }
   };
 
   const STATS = [
-    { label: "Cours suivis", value: enrolledCourses.length, icon: BookOpen, color: "text-purple-500" },
-    { label: "Certificats", value: certificates, icon: Award, color: "text-green-500" },
-    { label: "Points XP", value: profile?.xp ?? user?.xp ?? 0, icon: Zap, color: "text-amber-500" },
-    { label: "Niveau", value: profile?.level ?? user?.level ?? 1, icon: GraduationCap, color: "text-blue-500" },
+    { label: t.stats.courses, value: enrolledCourses.length, icon: BookOpen, color: "text-purple-500" },
+    { label: t.stats.certificates, value: certificates, icon: Award, color: "text-green-500" },
+    { label: t.stats.xp, value: profile?.xp ?? user?.xp ?? 0, icon: Zap, color: "text-amber-500" },
+    { label: t.stats.level, value: profile?.level ?? user?.level ?? 1, icon: GraduationCap, color: "text-blue-500" },
   ];
 
   const vStatus = profile?.verificationStatus ?? "incomplete";
@@ -551,12 +555,12 @@ export default function ProfilePage() {
     const xp = profile?.xp ?? user?.xp ?? 0;
     const lvl = profile?.level ?? user?.level ?? 1;
     const NAV = [
-      { id: "overview", label: "Aperçu", icon: LayoutDashboard },
-      { id: "courses", label: "Mes cours", icon: BookOpen },
-      { id: "assignments", label: "Travail à faire", icon: ClipboardList },
-      { id: "tutoring", label: "Mes profs", icon: Users },
-      { id: "meetings", label: "Mes réunions", icon: Video },
-      { id: "profile", label: "Mon profil", icon: Settings },
+      { id: "overview", label: t.nav.overview, icon: LayoutDashboard },
+      { id: "courses", label: t.nav.courses, icon: BookOpen },
+      { id: "assignments", label: t.nav.assignments, icon: ClipboardList },
+      { id: "tutoring", label: t.nav.tutoring, icon: Users },
+      { id: "meetings", label: t.nav.meetings, icon: Video },
+      { id: "profile", label: t.nav.profile, icon: Settings },
     ] as const;
 
     return (
@@ -584,16 +588,16 @@ export default function ProfilePage() {
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
                   className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                  aria-label="Changer la photo"
+                  aria-label={t.changePhoto}
                 >
                   {uploadingAvatar ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Camera className="h-5 w-5 text-white" />}
                 </button>
               </div>
               <p className="font-bold mt-3 leading-tight">{user?.name}</p>
-              <Badge variant="success" className="mt-1.5 gap-1">🎓 Niveau {lvl}</Badge>
+              <Badge variant="success" className="mt-1.5 gap-1">🎓 {t.levelWord} {lvl}</Badge>
               <div className="w-full mt-3">
                 <Progress value={(xp % 1000) / 10} className="h-2" />
-                <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">{xp % 1000} / 1000 XP</p>
+                <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">{xp % 1000} {t.xpSuffix}</p>
               </div>
             </div>
 
@@ -622,7 +626,7 @@ export default function ProfilePage() {
                 onClick={() => logout()}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
               >
-                <LogOut className="h-4 w-4 shrink-0" /> Déconnexion
+                <LogOut className="h-4 w-4 shrink-0" /> {t.logout}
               </button>
             </div>
           </aside>
@@ -632,8 +636,8 @@ export default function ProfilePage() {
             {section === "overview" && (
               <>
                 <div>
-                  <h1 className="text-2xl font-bold">Salut {firstName} 👋</h1>
-                  <p className="text-[hsl(var(--muted-foreground))]">Continue comme ça, tu progresses bien ! 💪</p>
+                  <h1 className="text-2xl font-bold">{t.greeting.replace("{name}", firstName)}</h1>
+                  <p className="text-[hsl(var(--muted-foreground))]">{t.greetingSub}</p>
                 </div>
 
                 {/* Stats */}
@@ -651,20 +655,20 @@ export default function ProfilePage() {
                 <div className="rounded-2xl border border-[hsl(var(--border))] bg-gradient-to-r from-purple-500/10 via-blue-500/5 to-transparent p-6">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-14 h-14 rounded-2xl gradient-bg flex flex-col items-center justify-center shadow-lg text-white shrink-0">
-                      <span className="text-[10px] font-medium opacity-90 -mb-0.5">Niveau</span>
+                      <span className="text-[10px] font-medium opacity-90 -mb-0.5">{t.levelWord}</span>
                       <span className="font-extrabold text-xl leading-none">{lvl}</span>
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <Progress value={(xp % 1000) / 10} className="flex-1 h-2.5" />
-                        <span className="text-xs font-medium text-[hsl(var(--muted-foreground))] shrink-0">{xp % 1000} / 1000 XP</span>
+                        <span className="text-xs font-medium text-[hsl(var(--muted-foreground))] shrink-0">{xp % 1000} {t.xpSuffix}</span>
                       </div>
                       <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1">
-                        Encore {1000 - (xp % 1000)} XP avant le niveau {lvl + 1} 🚀
+                        {t.xpToNext.replace("{xp}", String(1000 - (xp % 1000))).replace("{level}", String(lvl + 1))}
                       </p>
                     </div>
                   </div>
-                  <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] mb-2">🏅 Mes badges</p>
+                  <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] mb-2">{t.badgesTitle}</p>
                   <div className="flex flex-wrap gap-2">
                     {profile?.badges?.length ? (
                       profile.badges.map((b) => (
@@ -674,7 +678,7 @@ export default function ProfilePage() {
                         </div>
                       ))
                     ) : (
-                      <span className="text-xs text-[hsl(var(--muted-foreground))]">Termine des cours et des quiz pour gagner tes premiers badges 🎯</span>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))]">{t.noBadges}</span>
                     )}
                   </div>
                 </div>
@@ -684,9 +688,9 @@ export default function ProfilePage() {
             {section === "courses" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h1 className="text-2xl font-bold flex items-center gap-2">📚 Mes cours</h1>
+                  <h1 className="text-2xl font-bold flex items-center gap-2">{t.courses.title}</h1>
                   <Link href="/courses" className="text-sm text-[hsl(var(--primary))] hover:underline flex items-center gap-1">
-                    Voir le catalogue <ChevronRight className="h-3.5 w-3.5" />
+                    {t.courses.catalog} <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
 
@@ -697,9 +701,9 @@ export default function ProfilePage() {
                 ) : enrolledCourses.length === 0 ? (
                   <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-10 text-center">
                     <div className="text-4xl mb-2">🎒</div>
-                    <p className="font-semibold">Tu n&apos;as encore rejoint aucun cours</p>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4">Explore le catalogue et commence à apprendre dès aujourd&apos;hui.</p>
-                    <Link href="/courses"><Button variant="gradient" size="sm">Explorer les cours</Button></Link>
+                    <p className="font-semibold">{t.courses.emptyTitle}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4">{t.courses.emptyText}</p>
+                    <Link href="/courses"><Button variant="gradient" size="sm">{t.courses.explore}</Button></Link>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -724,12 +728,12 @@ export default function ProfilePage() {
                             <span className="text-xs font-medium text-[hsl(var(--primary))] shrink-0">{course.progress}%</span>
                           </div>
                           <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">
-                            {course.completedLessons}/{course.totalLessons} leçons
+                            {course.completedLessons}/{course.totalLessons} {t.courses.lessons}
                           </p>
                         </div>
                         <Link href={`/courses/${course.slug}/learn`}>
                           <Button size="sm" variant={course.progress >= 100 ? "outline" : "gradient"} className="shrink-0">
-                            {course.progress >= 100 ? "Revoir" : "Continuer"}
+                            {course.progress >= 100 ? t.courses.review : t.courses.continue}
                           </Button>
                         </Link>
                       </div>
@@ -745,14 +749,14 @@ export default function ProfilePage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Users className="h-6 w-6 text-[hsl(var(--primary))]" /> Mes profs
+                    <Users className="h-6 w-6 text-[hsl(var(--primary))]" /> {t.tutoring.title}
                   </h1>
                   <Link href="/tutoring" className="text-sm text-[hsl(var(--primary))] hover:underline flex items-center gap-1">
-                    Trouver un prof <Search className="h-3.5 w-3.5" />
+                    {t.tutoring.find} <Search className="h-3.5 w-3.5" />
                   </Link>
                 </div>
                 <p className="text-sm text-[hsl(var(--muted-foreground))] -mt-2">
-                  Suis l&apos;avancement de tes réservations auprès de tes professeurs.
+                  {t.tutoring.subtitle}
                 </p>
 
                 {studentLoading ? (
@@ -762,9 +766,9 @@ export default function ProfilePage() {
                 ) : reservations.length === 0 ? (
                   <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-10 text-center">
                     <div className="text-4xl mb-2">🧑‍🏫</div>
-                    <p className="font-semibold">Tu n&apos;as encore réservé aucun professeur</p>
-                    <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4">Parcours les profs disponibles et réserve ta première séance.</p>
-                    <Link href="/tutoring"><Button variant="gradient" size="sm">Trouver un prof</Button></Link>
+                    <p className="font-semibold">{t.tutoring.emptyTitle}</p>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4">{t.tutoring.emptyText}</p>
+                    <Link href="/tutoring"><Button variant="gradient" size="sm">{t.tutoring.find}</Button></Link>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -787,12 +791,12 @@ export default function ProfilePage() {
                               <p className="font-semibold truncate">{r.teacher?.name}</p>
                               {r.createdAt && (
                                 <p className="text-xs text-[hsl(var(--muted-foreground))] flex items-center gap-1 mt-0.5">
-                                  <CalendarDays className="h-3 w-3" /> Réservé le {new Date(r.createdAt).toLocaleDateString()}
+                                  <CalendarDays className="h-3 w-3" /> {t.tutoring.reservedOn} {new Date(r.createdAt).toLocaleDateString()}
                                 </p>
                               )}
                             </div>
                             <Badge variant={prog.tone} className="gap-1 shrink-0">
-                              <prog.Icon className="h-3 w-3" /> {prog.label}
+                              <prog.Icon className="h-3 w-3" /> {t.tutoring.status[prog.statusKey]}
                             </Badge>
                           </div>
 
@@ -802,22 +806,23 @@ export default function ProfilePage() {
                               className={cn("h-1.5", rejected && "[&>div]:bg-red-500")}
                             />
                             <div className="flex justify-between mt-1.5">
-                              {RESERVATION_STEPS.map((label, i) => {
+                              {RESERVATION_STEP_KEYS.map((key, i) => {
                                 const done = i + 1 <= prog.step;
+                                const isLast = i === RESERVATION_STEP_KEYS.length - 1;
                                 return (
                                   <span
-                                    key={label}
+                                    key={key}
                                     className={cn(
                                       "text-[10px]",
-                                      i === RESERVATION_STEPS.length - 1 && "text-right",
+                                      isLast && "text-right",
                                       done
-                                        ? rejected && i === RESERVATION_STEPS.length - 1
+                                        ? rejected && isLast
                                           ? "text-red-500 font-medium"
                                           : "text-[hsl(var(--primary))] font-medium"
                                         : "text-[hsl(var(--muted-foreground))]"
                                     )}
                                   >
-                                    {i === RESERVATION_STEPS.length - 1 ? prog.label : label}
+                                    {isLast ? t.tutoring.status[prog.statusKey] : t.tutoring.steps[key]}
                                   </span>
                                 );
                               })}
@@ -828,7 +833,7 @@ export default function ProfilePage() {
                             <div className="mt-4 flex justify-end">
                               <Link href="/dashboard/tutoring">
                                 <Button size="sm" variant="outline">
-                                  <Video className="h-3.5 w-3.5" /> Voir les séances
+                                  <Video className="h-3.5 w-3.5" /> {t.tutoring.seeSessions}
                                 </Button>
                               </Link>
                             </div>
@@ -837,7 +842,7 @@ export default function ProfilePage() {
                             <div className="mt-4 flex justify-end">
                               <Link href="/tutoring">
                                 <Button size="sm" variant="gradient">
-                                  <Search className="h-3.5 w-3.5" /> Trouver un autre prof
+                                  <Search className="h-3.5 w-3.5" /> {t.tutoring.findAnother}
                                 </Button>
                               </Link>
                             </div>
@@ -854,10 +859,10 @@ export default function ProfilePage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Video className="h-6 w-6 text-[hsl(var(--primary))]" /> Mes réunions
+                    <Video className="h-6 w-6 text-[hsl(var(--primary))]" /> {t.meetings.title}
                   </h1>
                   <Link href="/dashboard/meetings" className="text-sm text-[hsl(var(--primary))] hover:underline flex items-center gap-1">
-                    Tout voir <ChevronRight className="h-3.5 w-3.5" />
+                    {t.meetings.seeAll} <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
                 {upcomingMeetings.length === 0 ? (
@@ -865,7 +870,7 @@ export default function ProfilePage() {
                     <div className="w-12 h-12 rounded-full bg-[hsl(var(--muted))] flex items-center justify-center mx-auto mb-3">
                       <Clock className="h-6 w-6" />
                     </div>
-                    <p className="text-sm">Aucune réunion prévue pour le moment</p>
+                    <p className="text-sm">{t.meetings.empty}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -888,11 +893,11 @@ export default function ProfilePage() {
 
             {section === "profile" && (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                <h1 className="text-2xl font-bold">Mon profil</h1>
+                <h1 className="text-2xl font-bold">{t.form.title}</h1>
                 <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label>Nom complet</Label>
+                      <Label>{t.form.fullName}</Label>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
                         <Input className="pl-9" {...register("name")} />
@@ -900,7 +905,7 @@ export default function ProfilePage() {
                       {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Email</Label>
+                      <Label>{t.form.email}</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
                         <Input className="pl-9" value={user?.email} disabled />
@@ -908,13 +913,13 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Bio</Label>
-                    <Textarea placeholder="Parle-nous un peu de toi…" className="min-h-[100px]" {...register("bio")} />
+                    <Label>{t.form.bio}</Label>
+                    <Textarea placeholder={t.form.bioPlaceholder} className="min-h-[100px]" {...register("bio")} />
                   </div>
                 </div>
                 <div className="flex justify-end">
                   <Button type="submit" variant="gradient" loading={saving}>
-                    <Save className="h-4 w-4" /> Enregistrer
+                    <Save className="h-4 w-4" /> {t.form.save}
                   </Button>
                 </div>
               </form>

@@ -70,6 +70,7 @@ export default function ClassRoomPage() {
       </Link>
       <AgoraRoom
         tokenUrl={`/api/classes/${cls._id}/token`}
+        meetingId={cls._id}
         title={`${cls.subject} · ${cls.level}`}
         backHref={backHref}
       />

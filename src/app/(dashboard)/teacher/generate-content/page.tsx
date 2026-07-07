@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Sparkles, Upload, FileText, BookOpen,
   ClipboardList, GraduationCap, RotateCcw, Download, Copy, Check,
-  Save, Library, Brain, Wand2, Plus, X, Trash2,
+  Save, Library, Brain, Wand2, Plus, X, Trash2, Code2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -120,15 +120,17 @@ function mdToHtml(text: string): string {
 
 // ─── Structured ↔ Markdown ───────────────────────────────────────────────────
 
-function structuredToMarkdown(doc: StructuredDoc): string {
+function structuredToMarkdown(doc: StructuredDoc, withCorrection = true): string {
   let md = "## Résumé du cours\n\n" + doc.summary.trim() + "\n\n---\n\n## Énoncés\n\n";
   doc.exercises.forEach((ex, i) => {
     md += `### Exercice ${i + 1}${ex.points ? ` — ${ex.points}` : ""}\n\n${ex.statement.trim()}\n\n`;
   });
-  md += "\n---\n\n## Corrections\n\n";
-  doc.exercises.forEach((ex, i) => {
-    md += `### Correction — Exercice ${i + 1}\n\n${ex.correction.trim()}\n\n`;
-  });
+  if (withCorrection) {
+    md += "\n---\n\n## Corrections\n\n";
+    doc.exercises.forEach((ex, i) => {
+      md += `### Correction — Exercice ${i + 1}\n\n${ex.correction.trim()}\n\n`;
+    });
+  }
   return md;
 }
 
@@ -159,7 +161,7 @@ const SEAL_SVG = `
 
 function printAsPDF(
   subject: string, level: string, contentType: string, title: string,
-  htmlContent: string, stampId: string,
+  htmlContent: string, stampId: string, rtl = false,
 ) {
   const typeLabel = CONTENT_TYPES.find((t) => t.id === contentType)?.label || contentType;
   const year = new Date().getFullYear();
@@ -211,7 +213,7 @@ function printAsPDF(
     </table>
     <div class="doc-title">${typeLabel} — ${subject}<br><span style="font-size:12pt">${title}</span></div>
   </div>
-  <div id="content">${htmlContent}</div>
+  <div id="content"${rtl ? ' dir="rtl" style="text-align:right"' : ''}>${htmlContent}</div>
   <div class="footer">
     <span>Document généré par <strong>Telmidhi</strong> • Programme officiel tunisien</span>
     <span class="stamp-id">Ref: ${stampId}</span>
@@ -304,11 +306,20 @@ export default function GenerateContentPage() {
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  // Whether to also generate corrections (off = énoncés only, e.g. a blank exam).
+  const [withCorrection, setWithCorrection] = useState(true);
+  // Reflects what the currently-shown document actually contains.
+  const [correctionsIncluded, setCorrectionsIncluded] = useState(true);
+  // Output language of the generated document (Arabic for sciences up to collège).
+  const [language, setLanguage] = useState("francais");
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState("");
   const [structured, setStructured] = useState<StructuredDoc | null>(null);
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Raw source (Markdown + LaTeX) editor: edit the code and re-render the document.
+  const [showCode, setShowCode] = useState(false);
+  const [codeDraft, setCodeDraft] = useState("");
   const [savedId, setSavedId] = useState("");
   const [stampId, setStampId] = useState("");
 
@@ -348,10 +359,11 @@ export default function GenerateContentPage() {
 
   const canGenerate = subject && level && contentType && title.trim().length >= 3;
   const isStructured = !!structured;
+  const rtl = language === "arabe";
 
   const fullMarkdown = useMemo(
-    () => (structured ? structuredToMarkdown(structured) : generated),
-    [structured, generated]
+    () => (structured ? structuredToMarkdown(structured, correctionsIncluded) : generated),
+    [structured, generated, correctionsIncluded]
   );
 
   const handleGenerate = async () => {
@@ -365,14 +377,17 @@ export default function GenerateContentPage() {
       const res = await fetch("/api/ai/generate-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, level, contentType, title, notes }),
+        body: JSON.stringify({ subject, level, contentType, title, notes, withCorrection }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) { toast.error(json.error || "Erreur de génération"); return; }
+      setLanguage(json.data.language || "francais");
       if (json.data.format === "structured") {
         setStructured(json.data.structured);
+        setCorrectionsIncluded(json.data.withCorrection !== false);
       } else {
         setGenerated(json.data.content);
+        setCorrectionsIncluded(true);
       }
       toast.success("Contenu généré avec succès !");
     } catch {
@@ -558,12 +573,31 @@ export default function GenerateContentPage() {
     toast.success("Copié !");
   };
 
+  // Open/close the source editor, seeding it with the current document's code.
+  const toggleCode = () => {
+    setShowCode((v) => {
+      if (!v) setCodeDraft(fullMarkdown);
+      return !v;
+    });
+  };
+
+  // Apply the edited code: the document becomes a single editable markdown body
+  // rendered from exactly what the teacher typed (preview + PDF follow).
+  const applyCode = () => {
+    setStructured(null);
+    setGenerated(codeDraft);
+    setCorrectionsIncluded(true);
+    setSavedId("");
+    setShowCode(false);
+    toast.success("Document mis à jour depuis le code");
+  };
+
   const handlePrintPDF = () => {
     const id = stampId || `9A-${Date.now().toString(36).toUpperCase()}`;
     if (structured) {
-      printAsPDF(subject, level, contentType, title, renderStructuredToHTML(structured), id);
+      printAsPDF(subject, level, contentType, title, renderStructuredToHTML(structured, correctionsIncluded), id, rtl);
     } else {
-      printAsPDF(subject, level, contentType, title, mdToHtml(generated), id);
+      printAsPDF(subject, level, contentType, title, mdToHtml(generated), id, rtl);
     }
   };
 
@@ -680,7 +714,7 @@ export default function GenerateContentPage() {
 
         <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 space-y-4">
           <div className="rounded-xl bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/20 p-3 text-xs text-[hsl(var(--muted-foreground))]">
-            <strong className="text-[hsl(var(--primary))]">Comment ça marche :</strong> Gemini AI analyse votre PDF et crée un nouveau document avec la même structure mais des exercices et formulations entièrement différents.
+            <strong className="text-[hsl(var(--primary))]">Comment ça marche :</strong> l&apos;IA (Claude) analyse votre PDF et crée une version très proche de l&apos;original, avec la même structure et les mêmes exercices — seules de petites modifications sont apportées (valeurs numériques, formulations).
           </div>
 
           <label className="block">
@@ -803,6 +837,24 @@ export default function GenerateContentPage() {
             })}
           </div>
 
+          {STRUCTURED_TYPES.has(contentType) && (
+            <button
+              type="button"
+              onClick={() => setWithCorrection((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40 transition-colors text-left"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Inclure la correction</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  {withCorrection ? "Énoncés + corrections détaillées" : "Énoncés uniquement (sujet à distribuer)"}
+                </p>
+              </div>
+              <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${withCorrection ? "bg-[hsl(var(--primary))]" : "bg-[hsl(var(--muted))]"}`}>
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${withCorrection ? "translate-x-5" : "translate-x-0.5"}`} />
+              </span>
+            </button>
+          )}
+
           <div className="space-y-1.5">
             <Label>Titre / Chapitre *</Label>
             <Input placeholder="ex: Les suites numériques" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -866,6 +918,10 @@ export default function GenerateContentPage() {
                     <RotateCcw className="h-4 w-4" />
                     <span className="hidden sm:inline text-xs">Régénérer</span>
                   </Button>
+                  <Button variant={showCode ? "gradient" : "outline"} size="sm" onClick={toggleCode}>
+                    <Code2 className="h-4 w-4" />
+                    <span className="hidden sm:inline text-xs">Code LaTeX</span>
+                  </Button>
                   <Button variant="outline" size="sm" onClick={handlePrintPDF}>
                     <Download className="h-4 w-4" />
                     <span className="hidden sm:inline text-xs">PDF</span>
@@ -883,7 +939,32 @@ export default function GenerateContentPage() {
                 </div>
               </div>
 
-              {/* "Desk" with the A4 paper */}
+              {/* Source code editor — edit the Markdown/LaTeX and re-render */}
+              {showCode ? (
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                      Code source (Markdown + LaTeX). Formules entre <code className="text-[hsl(var(--primary))]">$...$</code> ou <code className="text-[hsl(var(--primary))]">$$...$$</code>.
+                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button variant="ghost" size="sm" onClick={() => setShowCode(false)}>
+                        <X className="h-4 w-4" /> Annuler
+                      </Button>
+                      <Button variant="gradient" size="sm" onClick={applyCode}>
+                        <Check className="h-4 w-4" /> Appliquer
+                      </Button>
+                    </div>
+                  </div>
+                  <textarea
+                    value={codeDraft}
+                    onChange={(e) => setCodeDraft(e.target.value)}
+                    spellCheck={false}
+                    dir={rtl ? "rtl" : "ltr"}
+                    className="flex-1 w-full resize-none outline-none p-4 font-mono text-xs leading-relaxed bg-[#0b1020] text-emerald-100"
+                  />
+                </div>
+              ) : (
+              /* "Desk" with the A4 paper */
               <div className="flex-1 overflow-auto bg-[#eef0f4] p-4 sm:p-6">
                 <div className="paper-page mx-auto bg-white shadow-[0_10px_40px_rgba(0,0,0,0.08)] rounded-sm relative overflow-hidden"
                   style={{ maxWidth: "210mm", minHeight: "297mm", padding: "2cm 2cm 2.5cm", fontFamily: "'Times New Roman', Times, serif" }}>
@@ -917,7 +998,7 @@ export default function GenerateContentPage() {
                   </div>
 
                   {/* Document body */}
-                  <div className="relative z-[1]">
+                  <div className="relative z-[1]" dir={rtl ? "rtl" : "ltr"}>
                     {isStructured ? (
                       <>
                         <RefinableBlock
@@ -950,21 +1031,25 @@ export default function GenerateContentPage() {
                           </Button>
                         </div>
 
-                        <div className="my-6 border-t-2 border-dashed border-[hsl(var(--primary))]/30 relative">
-                          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-white px-2 text-[10pt] text-[hsl(var(--primary))]/60 italic">— saut de page —</span>
-                        </div>
+                        {correctionsIncluded && (
+                          <>
+                            <div className="my-6 border-t-2 border-dashed border-[hsl(var(--primary))]/30 relative">
+                              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-white px-2 text-[10pt] text-[hsl(var(--primary))]/60 italic">— saut de page —</span>
+                            </div>
 
-                        <h2 className="paper-section-title">Corrections</h2>
-                        {structured!.exercises.map((ex, i) => (
-                          <RefinableBlock
-                            key={`co-${i}`}
-                            heading={`Correction — Exercice ${i + 1}`}
-                            value={ex.correction}
-                            onAIRefine={() => openRefine({ kind: "correction", index: i })}
-                            refining={refining && refiningKey === `co-${i}`}
-                            katexReady={katexReady}
-                          />
-                        ))}
+                            <h2 className="paper-section-title">Corrections</h2>
+                            {structured!.exercises.map((ex, i) => (
+                              <RefinableBlock
+                                key={`co-${i}`}
+                                heading={`Correction — Exercice ${i + 1}`}
+                                value={ex.correction}
+                                onAIRefine={() => openRefine({ kind: "correction", index: i })}
+                                refining={refining && refiningKey === `co-${i}`}
+                                katexReady={katexReady}
+                              />
+                            ))}
+                          </>
+                        )}
                       </>
                     ) : (
                       <RefinableBlock
@@ -987,6 +1072,7 @@ export default function GenerateContentPage() {
                   Survolez une section pour l&apos;améliorer avec l&apos;IA. Sauvegardez ou téléchargez le PDF quand tout vous convient.
                 </p>
               </div>
+              )}
             </>
           )}
         </div>
@@ -1039,7 +1125,7 @@ export default function GenerateContentPage() {
 
 // ─── Helper: render structured doc directly to print-ready HTML ───────────────
 
-function renderStructuredToHTML(doc: StructuredDoc): string {
+function renderStructuredToHTML(doc: StructuredDoc, withCorrection = true): string {
   const summary = `<h2>Résumé du cours</h2>${mdToHtml(doc.summary)}`;
   const statements = doc.exercises.map((ex, i) =>
     `<div style="margin:14px 0;page-break-inside:avoid">
@@ -1047,20 +1133,23 @@ function renderStructuredToHTML(doc: StructuredDoc): string {
        ${mdToHtml(ex.statement)}
      </div>`
   ).join("");
-  const corrections = doc.exercises.map((ex, i) =>
-    `<div style="margin:14px 0;page-break-inside:avoid">
+
+  const correctionsBlock = withCorrection
+    ? `<hr style="page-break-before:always">
+    <h2>Corrections</h2>
+    ${doc.exercises.map((ex, i) =>
+      `<div style="margin:14px 0;page-break-inside:avoid">
        <h3>Correction — Exercice ${i + 1}</h3>
        ${mdToHtml(ex.correction)}
      </div>`
-  ).join("");
+    ).join("")}`
+    : "";
 
   return `
     ${summary}
     <hr>
     <h2>Énoncés</h2>
     ${statements}
-    <hr style="page-break-before:always">
-    <h2>Corrections</h2>
-    ${corrections}
+    ${correctionsBlock}
   `;
 }

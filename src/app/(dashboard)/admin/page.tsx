@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MeetingHistory } from "@/components/meetings/meeting-history";
 import { getInitials, formatRelativeTime } from "@/lib/utils";
 
 interface RecentUser {
@@ -201,6 +202,9 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Platform-wide meeting history */}
+      <MeetingHistory title="Meeting history (all)" />
     </div>
   );
 }

@@ -7,16 +7,26 @@ export function cn(...inputs: ClassValue[]) {
 
 // The moment a meeting is over. Uses endTime when set; otherwise assumes the
 // session runs two hours from its start.
+//
+// The date is stored as UTC midnight of the intended calendar day, so we read
+// the day with the UTC getters (otherwise a viewer behind/ahead of UTC would see
+// it shift to the day before/after) and then apply the wall-clock time locally.
 export function getMeetingEnd(date: Date | string, startTime: string, endTime?: string): Date {
-  const end = new Date(date);
-  const time = endTime && /^\d{1,2}:\d{2}$/.test(endTime) ? endTime : null;
-  if (time) {
-    const [h, m] = time.split(":").map(Number);
-    end.setHours(h, m, 0, 0);
+  const d = new Date(date);
+  const y = d.getUTCFullYear(), mo = d.getUTCMonth(), day = d.getUTCDate();
+
+  const validTime = (t?: string) => !!t && /^\d{1,2}:\d{2}$/.test(t);
+  const [sh, sm] = (validTime(startTime) ? startTime : "00:00").split(":").map(Number);
+
+  if (validTime(endTime)) {
+    const [eh, em] = endTime!.split(":").map(Number);
+    const end = new Date(y, mo, day, eh, em, 0, 0);
+    // An end time at/before the start means the session runs past midnight.
+    if (eh * 60 + em <= sh * 60 + sm) end.setDate(end.getDate() + 1);
     return end;
   }
-  const [sh, sm] = (startTime || "00:00").split(":").map(Number);
-  end.setHours(sh, sm, 0, 0);
+
+  const end = new Date(y, mo, day, sh, sm, 0, 0);
   end.setHours(end.getHours() + 2);
   return end;
 }
@@ -25,6 +35,16 @@ export function getMeetingEnd(date: Date | string, startTime: string, endTime?: 
 // joins live; everyone watches the recording instead.
 export function isMeetingEnded(date: Date | string, startTime: string, endTime?: string): boolean {
   return Date.now() > getMeetingEnd(date, startTime, endTime).getTime();
+}
+
+// Format a Date as the local "YYYY-MM-DD" a <input type="date"> expects. Using
+// toISOString() here is a bug: it converts to UTC, so a local midnight east of
+// UTC rolls back to the previous day and the meeting gets scheduled a day early.
+export function toDateInputValue(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function formatDate(date: Date | string): string {

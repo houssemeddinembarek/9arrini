@@ -11,9 +11,47 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
 
 const STRUCTURED_TYPES = new Set(["exercices", "devoir_controle", "devoir_synthese"]);
 
+// ── Teaching language (Tunisian curriculum) ─────────────────────────────────
+// Scientific subjects are taught in Arabic through primary + collège, then in
+// French from lycée onward. Language subjects keep their own language.
+
+type Lang = "arabe" | "francais" | "anglais" | "allemand";
+
+const SCIENTIFIC_SUBJECTS = new Set([
+  "Mathématiques", "Physique-Chimie", "Physique", "Chimie",
+  "Sciences de la vie et de la terre (SVT)", "Technologie",
+]);
+
+const SUBJECT_LANGUAGE: Record<string, Lang> = {
+  "Français": "francais",
+  "Anglais": "anglais",
+  "Allemand": "allemand",
+  "Arabe": "arabe",
+};
+
+// Primary + collège ("années de base") are taught in Arabic for sciences.
+function isBaseLevel(level: string): boolean {
+  return /primaire|base/i.test(level);
+}
+
+function resolveLanguage(subject: string, level: string): Lang {
+  if (SUBJECT_LANGUAGE[subject]) return SUBJECT_LANGUAGE[subject];
+  if (SCIENTIFIC_SUBJECTS.has(subject)) return isBaseLevel(level) ? "arabe" : "francais";
+  return "francais";
+}
+
+// The "write in language X" directive injected into every prompt.
+function langDirective(lang: Lang): string {
+  if (lang === "arabe") {
+    return `Rédige TOUT le contenu textuel en **arabe** (arabe standard moderne), avec la terminologie scientifique scolaire tunisienne. Les formules et symboles mathématiques restent en notation LaTeX universelle entre $...$ ou $$...$$.`;
+  }
+  const name = lang === "anglais" ? "anglais" : lang === "allemand" ? "allemand" : "français";
+  return `Langue: ${name}. Terminologie conforme aux manuels scolaires tunisiens officiels.`;
+}
+
 // ── Prompt builders ─────────────────────────────────────────────────────────
 
-function buildMarkdownPrompt(subject: string, level: string, contentType: string, title: string, notes: string): string {
+function buildMarkdownPrompt(subject: string, level: string, contentType: string, title: string, notes: string, lang: Lang): string {
   const typeLabel = CONTENT_TYPE_LABELS[contentType] || contentType;
 
   let typeInstructions = "";
@@ -49,8 +87,7 @@ ${notes ? `- Instructions: ${notes}` : ""}
 ${typeInstructions}
 
 **Format OBLIGATOIRE:**
-- Langue: français
-- Terminologie conforme aux manuels scolaires tunisiens officiels
+- ${langDirective(lang)}
 - Structure claire avec ## pour les parties, ### pour les sous-parties
 - **Formules: notation LaTeX entre $...$ inline et $$...$$ display**
 - Commence directement par le titre, sans introduction méta
@@ -58,13 +95,29 @@ ${typeInstructions}
 Génère maintenant le document complet:`;
 }
 
-function buildStructuredPrompt(subject: string, level: string, contentType: string, title: string, notes: string): string {
+function buildStructuredPrompt(subject: string, level: string, contentType: string, title: string, notes: string, withCorrection: boolean, lang: Lang): string {
   const typeLabel = CONTENT_TYPE_LABELS[contentType] || contentType;
   const duration =
     contentType === "devoir_controle" ? "1 heure (20 points)" :
     contentType === "devoir_synthese" ? "2 heures (20 points)" :
     "Série d'application";
   const exerciseCount = contentType === "exercices" ? 10 : contentType === "devoir_controle" ? 3 : 4;
+
+  // The exercise object and the correction rule change when the teacher wants
+  // the énoncés only (no solutions) — e.g. a blank exam paper to hand out.
+  const exerciseShape = withCorrection
+    ? `{
+      "statement": "Énoncé complet de l'exercice 1 en markdown. Inclure parties a), b), c) si nécessaire. LaTeX entre $...$ ou $$...$$.",
+      "correction": "Correction détaillée et rédigée pas-à-pas pour l'exercice 1, en markdown avec LaTeX.",
+      "points": "4 pts"
+    }`
+    : `{
+      "statement": "Énoncé complet de l'exercice 1 en markdown. Inclure parties a), b), c) si nécessaire. LaTeX entre $...$ ou $$...$$.",
+      "points": "4 pts"
+    }`;
+  const correctionRule = withCorrection
+    ? `- Chaque exercice doit avoir une correction COMPLÈTE et rédigée, pas juste la réponse finale.`
+    : `- NE génère AUCUNE correction ni solution. Fournis UNIQUEMENT les énoncés — n'inclus pas de champ "correction".`;
 
   return `Tu es un professeur expert du système éducatif tunisien (Ministère de l'Éducation Nationale).
 Produis un document de type **${typeLabel}** (${duration}) sur "${title}" pour ${subject} — ${level}.
@@ -74,19 +127,15 @@ ${notes ? `Contraintes supplémentaires: ${notes}\n` : ""}
 {
   "summary": "Markdown du résumé de cours préparatoire: objectifs, définitions clés, théorèmes, formules, méthodes. Utilise ##, ###, **, listes et LaTeX entre $...$ ou $$...$$.",
   "exercises": [
-    {
-      "statement": "Énoncé complet de l'exercice 1 en markdown. Inclure parties a), b), c) si nécessaire. LaTeX entre $...$ ou $$...$$.",
-      "correction": "Correction détaillée et rédigée pas-à-pas pour l'exercice 1, en markdown avec LaTeX.",
-      "points": "4 pts"
-    }
+    ${exerciseShape}
   ]
 }
 
 **Règles strictes:**
 - Génère exactement ${exerciseCount} exercices progressifs (du plus simple au plus complexe).
-- Chaque exercice doit avoir une correction COMPLÈTE et rédigée, pas juste la réponse finale.
+${correctionRule}
 - Le champ "summary" est un cours condensé conforme au programme tunisien sur "${title}".
-- Langue: français. Terminologie scolaire tunisienne.
+- ${langDirective(lang)}
 - LaTeX OBLIGATOIRE pour toute formule mathématique.
 - Échappe correctement les caractères dans les chaînes JSON (\\n pour les sauts de ligne, \\" pour les guillemets, \\\\ pour les backslash LaTeX → écris $\\\\frac{a}{b}$ dans le JSON).
 - AUCUN texte hors JSON. La réponse DOIT être parsable par JSON.parse().`;
@@ -116,12 +165,14 @@ function buildMockMarkdown(subject: string, level: string, contentType: string, 
 `;
 }
 
-function buildMockStructured(subject: string, level: string, title: string) {
+function buildMockStructured(subject: string, level: string, title: string, withCorrection: boolean) {
   return {
     summary: `## Résumé — ${title}\n\n**Matière:** ${subject} • **Niveau:** ${level}\n\n> ⚠️ Mode démonstration — configurez une clé API.\n\n### Définitions\n- **Définition 1:** énoncé...\n- **Définition 2:** énoncé...\n\n### Formules essentielles\n$$\\Delta = b^2 - 4ac$$`,
     exercises: Array.from({ length: 10 }, (_, i) => ({
       statement: `**Exercice ${i + 1}:** Résoudre l'équation $x^2 - ${i + 2}x + ${i + 1} = 0$.`,
-      correction: `**Correction Ex.${i + 1}:**\n\nOn calcule $\\Delta = (${i + 2})^2 - 4 \\times ${i + 1} = ${(i + 2) ** 2 - 4 * (i + 1)}$.\n\n$$x_{1,2} = \\frac{${i + 2} \\pm \\sqrt{\\Delta}}{2}$$`,
+      correction: withCorrection
+        ? `**Correction Ex.${i + 1}:**\n\nOn calcule $\\Delta = (${i + 2})^2 - 4 \\times ${i + 1} = ${(i + 2) ** 2 - 4 * (i + 1)}$.\n\n$$x_{1,2} = \\frac{${i + 2} \\pm \\sqrt{\\Delta}}{2}$$`
+        : "",
       points: contentTypePoints(i),
     })),
   };
@@ -218,10 +269,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Teachers only" }, { status: 403 });
     }
 
-    const { subject, level, contentType, title, notes } = await request.json();
+    const { subject, level, contentType, title, notes, withCorrection } = await request.json();
     if (!subject || !level || !contentType || !title?.trim()) {
       return NextResponse.json({ success: false, error: "Champs requis manquants" }, { status: 400 });
     }
+    // Énoncés + corrections by default; the teacher can ask for énoncés only.
+    const includeCorrection = withCorrection !== false;
+    // Tunisian curriculum: Arabic for sciences up to collège, French from lycée.
+    const lang = resolveLanguage(subject, level);
 
     const useStructured = STRUCTURED_TYPES.has(contentType);
     const hasKey = !!(process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY);
@@ -231,14 +286,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: useStructured
-          ? { format: "structured", structured: buildMockStructured(subject, level, title) }
-          : { format: "markdown", content: buildMockMarkdown(subject, level, contentType, title) },
+          ? { format: "structured", structured: buildMockStructured(subject, level, title, includeCorrection), withCorrection: includeCorrection, language: lang }
+          : { format: "markdown", content: buildMockMarkdown(subject, level, contentType, title), language: lang },
       });
     }
 
     const prompt = useStructured
-      ? buildStructuredPrompt(subject, level, contentType, title, notes || "")
-      : buildMarkdownPrompt(subject, level, contentType, title, notes || "");
+      ? buildStructuredPrompt(subject, level, contentType, title, notes || "", includeCorrection, lang)
+      : buildMarkdownPrompt(subject, level, contentType, title, notes || "", lang);
 
     const raw = (await callAnthropic(prompt, useStructured)) || (await callGemini(prompt, useStructured));
     if (!raw) {
@@ -258,18 +313,19 @@ export async function POST(request: NextRequest) {
           correction: typeof e.correction === "string" ? e.correction : "",
           points: typeof e.points === "string" ? e.points : "",
         }))
-        .filter((e) => e.statement && e.correction);
+        // Without correction we only require a statement.
+        .filter((e) => e.statement && (includeCorrection ? e.correction : true));
 
       if (exercises.length === 0) {
         return NextResponse.json({ success: false, error: "Aucun exercice généré" }, { status: 502 });
       }
       return NextResponse.json({
         success: true,
-        data: { format: "structured", structured: { summary: parsed.summary, exercises } },
+        data: { format: "structured", structured: { summary: parsed.summary, exercises }, withCorrection: includeCorrection, language: lang },
       });
     }
 
-    return NextResponse.json({ success: true, data: { format: "markdown", content: raw } });
+    return NextResponse.json({ success: true, data: { format: "markdown", content: raw, language: lang } });
   } catch (error) {
     console.error("Generate content error:", error);
     return NextResponse.json({ success: false, error: "Service IA indisponible" }, { status: 500 });

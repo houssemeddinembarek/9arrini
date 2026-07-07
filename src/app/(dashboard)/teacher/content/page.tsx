@@ -26,6 +26,19 @@ const SOURCE_LABELS: Record<string, string> = {
   ai_adapted: "IA adaptée",
 };
 
+// Orders class levels along the Tunisian curriculum: primaire → collège (base)
+// → lycée → bac, then by year number within each stage.
+function levelRank(level: string): [number, number, string] {
+  const l = level.toLowerCase();
+  const num = parseInt((l.match(/(\d+)/) || [])[1] || "0", 10);
+  let stage = 4;
+  if (l.includes("primaire")) stage = 0;
+  else if (l.includes("base")) stage = 1;
+  else if (l.includes("bac")) stage = 3;
+  else if (l.includes("secondaire") || l.includes("année")) stage = 2;
+  return [stage, num, level];
+}
+
 interface ContentItem {
   _id: string;
   title: string;
@@ -87,6 +100,79 @@ export default function ContentLibraryPage() {
       item.level.toLowerCase().includes(q)
     );
   });
+
+  // Group the documents by class level, ordered along the curriculum.
+  const groupedByLevel = (() => {
+    const map = new Map<string, ContentItem[]>();
+    for (const item of filtered) {
+      const arr = map.get(item.level) || [];
+      arr.push(item);
+      map.set(item.level, arr);
+    }
+    return [...map.entries()].sort(([a], [b]) => {
+      const ra = levelRank(a), rb = levelRank(b);
+      return ra[0] - rb[0] || ra[1] - rb[1] || ra[2].localeCompare(rb[2]);
+    });
+  })();
+
+  const renderCard = (item: ContentItem) => {
+    const meta = TYPE_META[item.contentType] || TYPE_META.resume;
+    const Icon = meta.icon;
+    return (
+      <div
+        key={item._id}
+        className="group rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 flex flex-col gap-3 hover:shadow-md transition-shadow"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className={`w-10 h-10 rounded-xl bg-[hsl(var(--muted))] flex items-center justify-center shrink-0 ${meta.color}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="flex gap-1">
+            <Badge variant="secondary" className="text-[10px]">
+              {SOURCE_LABELS[item.source] || item.source}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="flex-1">
+          <h3 className="font-semibold text-sm leading-tight line-clamp-2">{item.title}</h3>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{item.subject} • {item.level}</p>
+          <Badge variant="outline" className="text-[10px] mt-2">{meta.label}</Badge>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[hsl(var(--border))]">
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">
+            {new Date(item.createdAt).toLocaleDateString("fr-TN")}
+          </span>
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {item.pdfUrl && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                <a href={item.pdfUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </Button>
+            )}
+            {item.body && (
+              <Link href={`/teacher/content/${item._id}`}>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <BookOpen className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-red-500 hover:text-red-600"
+              onClick={() => handleDelete(item._id)}
+              disabled={deleting === item._id}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -172,65 +258,19 @@ export default function ContentLibraryPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((item) => {
-            const meta = TYPE_META[item.contentType] || TYPE_META.resume;
-            const Icon = meta.icon;
-            return (
-              <div
-                key={item._id}
-                className="group rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 flex flex-col gap-3 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className={`w-10 h-10 rounded-xl bg-[hsl(var(--muted))] flex items-center justify-center shrink-0 ${meta.color}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="flex gap-1">
-                    <Badge variant="secondary" className="text-[10px]">
-                      {SOURCE_LABELS[item.source] || item.source}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <h3 className="font-semibold text-sm leading-tight line-clamp-2">{item.title}</h3>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">{item.subject} • {item.level}</p>
-                  <Badge variant="outline" className="text-[10px] mt-2">{meta.label}</Badge>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-[hsl(var(--border))]">
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">
-                    {new Date(item.createdAt).toLocaleDateString("fr-TN")}
-                  </span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {item.pdfUrl && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                        <a href={item.pdfUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      </Button>
-                    )}
-                    {item.body && (
-                      <Link href={`/teacher/content/${item._id}`}>
-                        <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <BookOpen className="h-3.5 w-3.5" />
-                        </Button>
-                      </Link>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-red-500 hover:text-red-600"
-                      onClick={() => handleDelete(item._id)}
-                      disabled={deleting === item._id}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
+        <div className="space-y-8">
+          {groupedByLevel.map(([level, group]) => (
+            <div key={level}>
+              <div className="flex items-center gap-2 mb-3 pb-1.5 border-b border-[hsl(var(--border))]">
+                <GraduationCap className="h-4 w-4 text-[hsl(var(--primary))]" />
+                <h2 className="font-semibold">{level}</h2>
+                <span className="text-xs text-[hsl(var(--muted-foreground))]">({group.length})</span>
               </div>
-            );
-          })}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.map(renderCard)}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

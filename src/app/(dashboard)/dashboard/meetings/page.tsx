@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Video, Calendar, Clock, Users, Loader2, CalendarX2, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { MeetingHistory } from "@/components/meetings/meeting-history";
 import { formatDate, isMeetingEnded } from "@/lib/utils";
 
 interface Meeting {
@@ -133,6 +134,9 @@ export default function MyMeetingsPage() {
           ))}
         </div>
       )}
+
+      {/* History of meetings that already happened */}
+      {!loading && <MeetingHistory />}
     </div>
   );
 }
