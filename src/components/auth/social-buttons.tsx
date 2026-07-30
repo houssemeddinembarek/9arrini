@@ -57,6 +57,7 @@ export function SocialButtons({ from = "/profile" }: { from?: string }) {
       const role = json.data.user.role;
       if (role === "admin") router.push("/admin");
       else if (role === "teacher") router.push("/teacher");
+      else if (role === "parent") router.push("/parent");
       else router.push(from === "/dashboard" ? "/profile" : from);
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;

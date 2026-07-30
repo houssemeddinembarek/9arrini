@@ -9,7 +9,7 @@ const registerSchema = z
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Invalid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
-    role: z.enum(["student", "teacher"]).default("student"),
+    role: z.enum(["student", "teacher", "parent"]).default("student"),
     // Student schooling details.
     stage: z.string().optional(),
     year: z.string().optional(),
@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
       email,
       password,
       role,
-      isApproved: role === "student" ? true : false,
+      // Only teachers need admin approval; students and parents are approved on sign-up.
+      isApproved: role !== "teacher",
       studentProfile:
         role === "student"
           ? { stage, year, section: section || "", governorate }

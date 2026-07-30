@@ -7,6 +7,8 @@ const fr = {
       studentDesc: "Je veux apprendre",
       teacher: "Professeur",
       teacherDesc: "Je veux enseigner",
+      parent: "Parent",
+      parentDesc: "Je suis les enfants",
       admin: "Admin",
     },
     login: {
@@ -385,7 +387,7 @@ const fr = {
       courses: "Cours",
       reports: "Rapports",
     },
-    roleBadge: { student: "Étudiant", teacher: "Professeur", admin: "Admin" },
+    roleBadge: { student: "Étudiant", teacher: "Professeur", admin: "Admin", parent: "Parent" },
     teacher: {
       title: "Tableau de bord enseignant",
       greeting: "Content de te revoir,",

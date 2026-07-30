@@ -59,6 +59,11 @@ const TEACHER_NAV: NavItem[] = [
   { key: "settings", href: "/teacher/settings", icon: Settings },
 ];
 
+// Parents get a single hub listing their children; each child opens a report.
+const PARENT_NAV: NavItem[] = [
+  { key: "dashboard", href: "/parent", icon: LayoutDashboard },
+];
+
 const ADMIN_NAV: NavItem[] = [
   { key: "dashboard", href: "/admin", icon: LayoutDashboard },
   { key: "users", href: "/admin/users", icon: Users },
@@ -71,7 +76,7 @@ const ADMIN_NAV: NavItem[] = [
 ];
 
 interface SidebarProps {
-  role?: "student" | "teacher" | "admin";
+  role?: "student" | "teacher" | "admin" | "parent";
 }
 
 export function Sidebar({ role = "student" }: SidebarProps) {
@@ -81,7 +86,11 @@ export function Sidebar({ role = "student" }: SidebarProps) {
   const { dict } = useI18n();
   const nav = dict.dashboard.nav;
 
-  const navItems = role === "admin" ? ADMIN_NAV : role === "teacher" ? TEACHER_NAV : STUDENT_NAV;
+  const navItems =
+    role === "admin" ? ADMIN_NAV :
+    role === "teacher" ? TEACHER_NAV :
+    role === "parent" ? PARENT_NAV :
+    STUDENT_NAV;
 
   const isActive = (href: string) => {
     if (["/profile", "/teacher", "/admin"].includes(href)) {

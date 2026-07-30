@@ -64,6 +64,7 @@ export default function LoginForm() {
       const role = json.data.user.role;
       if (role === "admin") router.push("/admin");
       else if (role === "teacher") router.push("/teacher");
+      else if (role === "parent") router.push("/parent");
       else router.push(from === "/dashboard" ? "/profile" : from);
     } catch {
       toast.error(t.generic);

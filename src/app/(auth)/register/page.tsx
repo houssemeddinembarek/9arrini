@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Lock, Mail, User, GraduationCap, BookOpen, Check, MapPin, Layers } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, User, GraduationCap, BookOpen, Check, MapPin, Layers, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ type RegisterForm = {
   email: string;
   password: string;
   confirmPassword: string;
-  role: "student" | "teacher";
+  role: "student" | "teacher" | "parent";
   stage?: string;
   year?: string;
   section?: string;
@@ -33,6 +33,7 @@ type RegisterForm = {
 const ROLES = [
   { value: "student" as const, icon: GraduationCap },
   { value: "teacher" as const, icon: BookOpen },
+  { value: "parent" as const, icon: Users },
 ];
 
 export default function RegisterPage() {
@@ -52,7 +53,7 @@ export default function RegisterPage() {
           email: z.string().email(t.emailInvalid),
           password: z.string().min(6, t.passwordMin),
           confirmPassword: z.string(),
-          role: z.enum(["student", "teacher"]),
+          role: z.enum(["student", "teacher", "parent"]),
           stage: z.string().optional(),
           year: z.string().optional(),
           section: z.string().optional(),
@@ -113,6 +114,7 @@ export default function RegisterPage() {
 
       const role = json.data.user.role;
       if (role === "teacher") router.push("/teacher");
+      else if (role === "parent") router.push("/parent");
       else router.push("/profile");
     } catch {
       toast.error(t.generic);
@@ -135,7 +137,7 @@ export default function RegisterPage() {
           {/* Role Selection */}
           <div className="space-y-2">
             <Label>{t.iAmA}</Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {ROLES.map(({ value, icon: Icon }) => (
                 <button
                   key={value}
@@ -154,8 +156,8 @@ export default function RegisterPage() {
                     </div>
                   )}
                   <Icon className="h-6 w-6 mb-2 text-[hsl(var(--primary))]" />
-                  <div className="font-semibold text-sm">{value === "student" ? tr.student : tr.teacher}</div>
-                  <div className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{value === "student" ? tr.studentDesc : tr.teacherDesc}</div>
+                  <div className="font-semibold text-sm">{tr[value]}</div>
+                  <div className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">{tr[`${value}Desc` as keyof typeof tr]}</div>
                 </button>
               ))}
             </div>

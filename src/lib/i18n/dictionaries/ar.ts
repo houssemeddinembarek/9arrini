@@ -7,6 +7,8 @@ const ar: Dictionary = {
       studentDesc: "أريد أن أتعلّم",
       teacher: "أستاذ",
       teacherDesc: "أريد أن أُدرّس",
+      parent: "وليّ أمر",
+      parentDesc: "أتابع أبنائي",
       admin: "مشرف",
     },
     login: {
@@ -384,7 +386,7 @@ const ar: Dictionary = {
       courses: "الدروس",
       reports: "التقارير",
     },
-    roleBadge: { student: "تلميذ", teacher: "أستاذ", admin: "مشرف" },
+    roleBadge: { student: "تلميذ", teacher: "أستاذ", admin: "مشرف", parent: "وليّ أمر" },
     teacher: {
       title: "لوحة تحكم الأستاذ",
       greeting: "مرحبًا بعودتك،",

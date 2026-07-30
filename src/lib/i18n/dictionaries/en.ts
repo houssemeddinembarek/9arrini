@@ -7,6 +7,8 @@ const en: Dictionary = {
       studentDesc: "I want to learn",
       teacher: "Teacher",
       teacherDesc: "I want to teach",
+      parent: "Parent",
+      parentDesc: "I follow my children",
       admin: "Admin",
     },
     login: {
@@ -385,7 +387,7 @@ const en: Dictionary = {
       courses: "Courses",
       reports: "Reports",
     },
-    roleBadge: { student: "Student", teacher: "Teacher", admin: "Admin" },
+    roleBadge: { student: "Student", teacher: "Teacher", admin: "Admin", parent: "Parent" },
     teacher: {
       title: "Teacher Dashboard",
       greeting: "Welcome back,",
