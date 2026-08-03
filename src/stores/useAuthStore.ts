@@ -7,7 +7,7 @@ interface User {
   _id: string;
   name: string;
   email: string;
-  role: "student" | "teacher" | "admin" | "parent";
+  role: "student" | "teacher" | "admin" | "parent" | "superadmin";
   avatar?: string;
   xp?: number;
   level?: number;

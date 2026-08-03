@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { SocialButtons } from "@/components/auth/social-buttons";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useI18n } from "@/lib/i18n/context";
+import { isAdmin } from "@/lib/roles";
 
 type LoginForm = { email: string; password: string };
 
@@ -62,7 +63,7 @@ export default function LoginForm() {
       toast.success(t.welcomeToast);
 
       const role = json.data.user.role;
-      if (role === "admin") router.push("/admin");
+      if (isAdmin(role)) router.push("/admin");
       else if (role === "teacher") router.push("/teacher");
       else if (role === "parent") router.push("/parent");
       else router.push(from === "/dashboard" ? "/profile" : from);

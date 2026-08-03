@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/jwt";
+import { isAdmin } from "@/lib/roles";
 
 const AUTH_PATHS = ["/login", "/register", "/forgot-password"];
 
-const PROTECTED_PREFIXES = ["/dashboard", "/teacher", "/admin", "/profile", "/ai-assistant", "/bookings"];
+const PROTECTED_PREFIXES = ["/dashboard", "/teacher", "/admin", "/parent", "/profile", "/ai-assistant", "/bookings"];
 
 // Students have no dashboard of their own — their hub is the profile screen.
 function homeFor(role?: string) {
-  if (role === "admin") return "/admin";
+  if (isAdmin(role)) return "/admin";
+  if (role === "parent") return "/parent";
   if (role === "teacher") return "/teacher";
   return "/profile";
 }
@@ -28,6 +30,19 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // Sign-up is split per role: /register is student-only, teachers and parents
+  // have their own pages. Invitations sent before the split pointed at
+  // /register?role=parent&code=… — keep those links working.
+  if (pathname === "/register") {
+    const role = request.nextUrl.searchParams.get("role");
+    if (role === "parent" || role === "teacher") {
+      const target = new URL(`/register/${role}`, request.url);
+      const code = request.nextUrl.searchParams.get("code");
+      if (code) target.searchParams.set("code", code);
+      return NextResponse.redirect(target);
+    }
+  }
+
   if (isProtected) {
     if (!token) {
       const loginUrl = new URL("/login", request.url);
@@ -41,10 +56,15 @@ export function proxy(request: NextRequest) {
       if (pathname === "/dashboard") {
         return NextResponse.redirect(new URL(homeFor(payload.role), request.url));
       }
-      if (pathname.startsWith("/admin") && payload.role !== "admin") {
+      // Superadmins outrank admins and are allowed everywhere, so every gate
+      // below is expressed as "is this role allowed", never "is it exactly X".
+      if (pathname.startsWith("/admin") && !isAdmin(payload.role)) {
         return NextResponse.redirect(new URL(homeFor(payload.role), request.url));
       }
       if (pathname.startsWith("/teacher") && payload.role === "student") {
+        return NextResponse.redirect(new URL(homeFor(payload.role), request.url));
+      }
+      if (pathname.startsWith("/parent") && payload.role !== "parent" && !isAdmin(payload.role)) {
         return NextResponse.redirect(new URL(homeFor(payload.role), request.url));
       }
 

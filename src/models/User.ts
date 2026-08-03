@@ -10,7 +10,8 @@ export interface IUserDocument extends Document {
   // How the account signs in. Social accounts (google/facebook) have no password.
   provider: "local" | "google" | "facebook";
   providerId?: string;
-  role: "student" | "teacher" | "admin" | "parent";
+  // "superadmin" is assigned manually in the database, never through the UI.
+  role: "student" | "teacher" | "admin" | "parent" | "superadmin";
   // Parent ⇄ child links (many-to-many): a parent's linked students, and the
   // share code a student hands to a parent to be linked.
   children: mongoose.Types.ObjectId[];
@@ -68,7 +69,11 @@ const UserSchema = new Schema<IUserDocument>(
     providerId: { type: String, default: "" },
     avatar: { type: String, default: "" },
     bio: { type: String, maxlength: 500, default: "" },
-    role: { type: String, enum: ["student", "teacher", "admin", "parent"], default: "student" },
+    role: {
+      type: String,
+      enum: ["student", "teacher", "admin", "parent", "superadmin"],
+      default: "student",
+    },
     // Parent's linked students; student's share code (indexed for fast redeem).
     children: [{ type: Schema.Types.ObjectId, ref: "User" }],
     linkCode: { type: String, index: true, sparse: true },

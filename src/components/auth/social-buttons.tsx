@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { auth, googleProvider, facebookProvider } from "@/lib/firebase";
 import { useI18n } from "@/lib/i18n/context";
+import { isAdmin } from "@/lib/roles";
 
 function GoogleIcon() {
   return (
@@ -55,7 +56,7 @@ export function SocialButtons({ from = "/profile" }: { from?: string }) {
       setUser(json.data.user);
       toast.success(t.welcomeToast);
       const role = json.data.user.role;
-      if (role === "admin") router.push("/admin");
+      if (isAdmin(role)) router.push("/admin");
       else if (role === "teacher") router.push("/teacher");
       else if (role === "parent") router.push("/parent");
       else router.push(from === "/dashboard" ? "/profile" : from);
