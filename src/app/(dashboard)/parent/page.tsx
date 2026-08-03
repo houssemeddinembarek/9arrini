@@ -81,7 +81,7 @@ export default function ParentOverviewPage() {
       <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
         <h2 className="font-semibold flex items-center gap-2 mb-1"><Plus className="h-4 w-4 text-[hsl(var(--primary))]" /> Lier un enfant</h2>
         <p className="text-xs text-[hsl(var(--muted-foreground))] mb-3">
-          Demandez à votre enfant son code d&apos;invitation (dans son profil) et saisissez-le ci-dessous.
+          Saisissez le code de liaison que l&apos;établissement vous a communiqué pour votre enfant.
         </p>
         <div className="flex flex-col sm:flex-row gap-2">
           <Input
@@ -106,7 +106,7 @@ export default function ParentOverviewPage() {
         <div className="rounded-2xl border-2 border-dashed border-[hsl(var(--border))] p-12 text-center">
           <Users className="h-10 w-10 mx-auto mb-3 text-[hsl(var(--muted-foreground))]/30" />
           <p className="font-medium">Aucun enfant lié pour le moment</p>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Utilisez le code d&apos;invitation de votre enfant ci-dessus.</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Utilisez ci-dessus le code communiqué par l&apos;établissement.</p>
         </div>
       ) : (
         <div className="space-y-3">

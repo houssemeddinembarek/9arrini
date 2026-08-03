@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Loader2, AlertTriangle, BookOpen, ClipboardList, Trophy,
-  Video, PlayCircle, CalendarDays, GraduationCap,
+  Video, PlayCircle, CalendarDays, GraduationCap, UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ interface Report {
   summary: {
     quizzes: { attempted: number; passed: number; avgBest: number };
     assignments: { total: number; corrected: number; pending: number };
+    attendance: { present: number; total: number };
     courses: number;
   };
   courses: { title: string; slug: string; progress: number; completedAt: string | null }[];
@@ -25,10 +26,16 @@ interface Report {
   assignments: { title: string; dueDate: string; status: string }[];
   upcomingMeetings: { _id: string; title: string; date: string; startTime: string }[];
   replays: { _id: string; title: string; date: string }[];
+  attendance: { title: string; date: string; status: string }[];
 }
 
 const STATUS_LABEL: Record<string, string> = {
   corrected: "Corrigé", submitted: "Rendu", pending: "En attente", "à faire": "À faire",
+};
+
+const ATTEND_LABEL: Record<string, string> = { present: "Présent", late: "Retard", absent: "Absent" };
+const ATTEND_VARIANT: Record<string, "success" | "secondary" | "blue"> = {
+  present: "success", late: "blue", absent: "secondary",
 };
 
 function Tile({ icon, value, label }: { icon: React.ReactNode; value: string | number; label: string }) {
@@ -104,11 +111,12 @@ export default function ChildReportPage() {
       </div>
 
       {/* Summary tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Tile icon={<BookOpen className="h-3.5 w-3.5" />} value={summary.courses} label="Cours" />
         <Tile icon={<Trophy className="h-3.5 w-3.5" />} value={`${summary.quizzes.passed}/${summary.quizzes.attempted}`} label="Quiz réussis" />
         <Tile icon={<GraduationCap className="h-3.5 w-3.5" />} value={`${summary.quizzes.avgBest}%`} label="Score moyen" />
         <Tile icon={<ClipboardList className="h-3.5 w-3.5" />} value={summary.assignments.pending} label="À faire" />
+        <Tile icon={<UserCheck className="h-3.5 w-3.5" />} value={`${summary.attendance.present}/${summary.attendance.total}`} label="Présences" />
       </div>
 
       {/* Courses */}
@@ -195,6 +203,27 @@ export default function ChildReportPage() {
                   <p className="text-xs text-[hsl(var(--muted-foreground))] flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {formatDate(m.date)}</p>
                 </div>
                 <span className="text-xs text-[hsl(var(--muted-foreground))] flex items-center gap-1 shrink-0"><PlayCircle className="h-3.5 w-3.5" /> Enregistrement</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* Attendance */}
+      <Section title="Présences" icon={<UserCheck className="h-5 w-5 text-[hsl(var(--primary))]" />}>
+        {report.attendance.length === 0 ? (
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">Aucune présence enregistrée.</p>
+        ) : (
+          <div className="space-y-2">
+            {report.attendance.map((a, i) => (
+              <div key={i} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{a.title}</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))] flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {formatDate(a.date)}</p>
+                </div>
+                <Badge variant={ATTEND_VARIANT[a.status] || "secondary"} className="text-[10px] shrink-0">
+                  {ATTEND_LABEL[a.status] || a.status}
+                </Badge>
               </div>
             ))}
           </div>

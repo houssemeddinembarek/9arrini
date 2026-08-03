@@ -8,6 +8,7 @@ import QuizAttempt from "@/models/QuizAttempt";
 import Submission from "@/models/Submission";
 import Assignment from "@/models/Assignment";
 import Meeting from "@/models/Meeting";
+import Attendance from "@/models/Attendance";
 // Imported so their schemas are registered for populate().
 import "@/models/Course";
 import "@/models/Quiz";
@@ -33,7 +34,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const child = await ownedChild(session.userId, id);
     if (!child) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const [enrollments, attempts, submissions, assignments, meetings] = await Promise.all([
+    const [enrollments, attempts, submissions, assignments, meetings, attendance] = await Promise.all([
       Enrollment.find({ student: id }).populate("course", "title slug").sort({ lastAccessedAt: -1 }).lean(),
       QuizAttempt.find({ user: id }).populate("quiz", "title subject").sort({ updatedAt: -1 }).lean(),
       Submission.find({ student: id }).populate("assignment", "title dueDate").sort({ updatedAt: -1 }).lean(),
@@ -42,6 +43,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         .select("title date startTime endTime recordingUrl")
         .sort({ date: 1 })
         .lean(),
+      Attendance.find({ student: id }).populate("meeting", "title date").sort({ createdAt: -1 }).lean(),
     ]);
 
     // Courses
@@ -83,8 +85,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .filter((m) => !!m.recordingUrl)
       .map((m) => ({ _id: m._id, title: m.title, date: m.date }));
 
+    // Attendance records (meeting-scoped marks the teacher recorded).
+    const attendanceList = attendance
+      .filter((a) => a.meeting)
+      .map((a) => ({
+        title: (a.meeting as { title?: string }).title || "Réunion",
+        date: (a.meeting as { date?: Date }).date,
+        status: a.status as string,
+      }));
+    const presentCount = attendance.filter((a) => a.status === "present" || a.status === "late").length;
+
     // Summary tiles
     const summary = {
+      attendance: { present: presentCount, total: attendance.length },
       quizzes: {
         attempted: attempts.length,
         passed: attempts.filter((a) => a.passed).length,
@@ -102,7 +115,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
       success: true,
-      data: { child, summary, courses, quizzes, assignments: assignmentList, upcomingMeetings, replays },
+      data: { child, summary, courses, quizzes, assignments: assignmentList, upcomingMeetings, replays, attendance: attendanceList },
     });
   } catch (error) {
     console.error("parent child report error:", error);
