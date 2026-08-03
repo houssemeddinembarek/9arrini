@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Lesson from "@/models/Lesson";
 import { uploadVideoToCloudinary, isCloudinaryConfigured } from "@/lib/cloudinary";
+import { isAdmin } from "@/lib/roles";
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100 MB
 const ACCEPTED_TYPES = new Set([
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Admins can request every teacher's lessons with scope=all; everyone else
     // is scoped to the lessons they own.
     const filter: Record<string, unknown> = {};
-    if (!(session.role === "admin" && scope === "all")) {
+    if (!(isAdmin(session.role) && scope === "all")) {
       filter.teacher = session.userId;
     }
     if (subject) filter.subject = subject;
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ success: false, error: "Teachers only" }, { status: 403 });
     }
     if (!isCloudinaryConfigured()) {

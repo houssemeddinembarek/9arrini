@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Group from "@/models/Group";
+import { isAdmin } from "@/lib/roles";
 
 export async function GET() {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Teachers only" }, { status: 403 });
     }
 

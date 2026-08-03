@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import Course from "@/models/Course";
 import Enrollment from "@/models/Enrollment";
+import { isAdmin } from "@/lib/roles";
 // Registered so populate("contents") resolves the Content schema.
 import "@/models/Content";
 
@@ -67,7 +68,7 @@ export async function PATCH(
 
     if (
       course.teacher.toString() !== session.userId &&
-      session.role !== "admin"
+      !isAdmin(session.role)
     ) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
@@ -100,7 +101,7 @@ export async function DELETE(
 
     if (
       course.teacher.toString() !== session.userId &&
-      session.role !== "admin"
+      !isAdmin(session.role)
     ) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }

@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { notifyUsers } from "@/lib/notifications";
 import ClassEnrollment from "@/models/ClassEnrollment";
+import { isAdmin } from "@/lib/roles";
 // Registered for populate() of classSession.teacher / student.
 import "@/models/ClassSession";
 import "@/models/User";
@@ -13,7 +14,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "admin" && session.role !== "teacher") {
+    if (!isAdmin(session.role) && session.role !== "teacher") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -51,7 +52,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         link: "/dashboard/classes",
       });
       // When an admin accepts, let the teacher know the student is now on their roster.
-      if (session.role === "admin") {
+      if (isAdmin(session.role)) {
         await notifyUsers([String(cls.teacher)], {
           title: "New student in your class",
           message: `${student.name} joined "${cls.title}".`,

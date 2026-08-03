@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongodb";
 import ClassSession from "@/models/ClassSession";
 import ClassEnrollment from "@/models/ClassEnrollment";
 import User from "@/models/User";
+import { isAdmin } from "@/lib/roles";
 
 // List classes, shaped per role:
 //  - admin   → every class with pending/confirmed counts
@@ -17,7 +18,7 @@ export async function GET() {
 
     await connectDB();
 
-    if (session.role === "admin") {
+    if (isAdmin(session.role)) {
       const classes = await ClassSession.find()
         .populate("teacher", "name avatar")
         .sort({ date: -1 })
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "admin") {
+    if (!isAdmin(session.role)) {
       return NextResponse.json({ error: "Admins only" }, { status: 403 });
     }
 

@@ -5,6 +5,7 @@ import Course from "@/models/Course";
 import Lesson from "@/models/Lesson";
 import Content from "@/models/Content";
 import { slugify } from "@/lib/utils";
+import { isAdmin } from "@/lib/roles";
 import { z } from "zod";
 
 const createCourseSchema = z.object({
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
-    if (!session || !["teacher", "admin"].includes(session.role)) {
+    if (!session || !(session.role === "teacher" || isAdmin(session.role))) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 

@@ -5,6 +5,7 @@ import { notifyUsers } from "@/lib/notifications";
 import ClassSession from "@/models/ClassSession";
 import ClassEnrollment from "@/models/ClassEnrollment";
 import User from "@/models/User";
+import { ADMIN_ROLE_QUERY } from "@/lib/roles";
 
 // A student requests to join a class. The enrollment stays "pending" until an
 // admin confirms payment. Admins are notified of the new request.
@@ -33,7 +34,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     await ClassEnrollment.create({ classSession: id, student: session.userId, status: "pending" });
 
     // Notify admins that a payment confirmation is awaited.
-    const admins = await User.find({ role: "admin" }).select("_id").lean<{ _id: unknown }[]>();
+    const admins = await User.find(ADMIN_ROLE_QUERY).select("_id").lean<{ _id: unknown }[]>();
     await notifyUsers(
       admins.map((a) => String(a._id)),
       {

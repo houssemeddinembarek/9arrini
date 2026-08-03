@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Group from "@/models/Group";
 import User from "@/models/User";
+import { isAdmin } from "@/lib/roles";
 
 // Replace a group's members with the given list of students. Used to assign a
 // student (or several) to one of the teacher's groups.
@@ -10,7 +11,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Teachers only" }, { status: 403 });
     }
 

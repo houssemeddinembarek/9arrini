@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import ClassSession from "@/models/ClassSession";
 import ClassEnrollment from "@/models/ClassEnrollment";
+import { isAdmin } from "@/lib/roles";
 
 // Class details. Admin and the assigned teacher also get the roster
 // (teacher only sees confirmed students); a student gets their own status.
@@ -19,10 +20,10 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       .lean<{ _id: unknown; teacher: { _id: unknown } } & Record<string, unknown> | null>();
     if (!cls) return NextResponse.json({ error: "Class not found" }, { status: 404 });
 
-    const isAdmin = session.role === "admin";
+    const admin = isAdmin(session.role);
     const isOwnerTeacher = String(cls.teacher?._id ?? cls.teacher) === session.userId;
 
-    if (isAdmin) {
+    if (admin) {
       const enrollments = await ClassEnrollment.find({ classSession: id })
         .populate("student", "name email avatar")
         .sort({ createdAt: -1 })
@@ -57,7 +58,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "admin") return NextResponse.json({ error: "Admins only" }, { status: 403 });
+    if (!isAdmin(session.role)) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
     await connectDB();
     const { id } = await params;
@@ -82,7 +83,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "admin") return NextResponse.json({ error: "Admins only" }, { status: 403 });
+    if (!isAdmin(session.role)) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
     await connectDB();
     const { id } = await params;
