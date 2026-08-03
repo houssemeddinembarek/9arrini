@@ -9,6 +9,7 @@ import ClassSession from "@/models/ClassSession";
 import ClassEnrollment from "@/models/ClassEnrollment";
 import TutoringRequest from "@/models/TutoringRequest";
 import { isMeetingEnded } from "@/lib/utils";
+import { isAdmin } from "@/lib/roles";
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     // Admins see the whole platform's history; everyone else is scoped to the
     // meetings they teach, are invited to, or whose teacher accepted them.
-    const seeAll = session.role === "admin" && !!past;
+    const seeAll = isAdmin(session.role) && !!past;
     let filter: Record<string, unknown> = {};
     if (!seeAll) {
       const acceptedTeachers = await TutoringRequest.find({
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Teachers only" }, { status: 403 });
     }
 

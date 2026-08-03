@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import Course from "@/models/Course";
+import { isAdmin } from "@/lib/roles";
 
 // Teacher dashboard overview: the teacher's own courses plus aggregate stats.
 export async function GET() {
   try {
     const session = await getServerSession();
-    if (!session || !["teacher", "admin"].includes(session.role)) {
+    if (!session || !(session.role === "teacher" || isAdmin(session.role))) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 

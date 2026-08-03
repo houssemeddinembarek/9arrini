@@ -528,6 +528,14 @@ export default function CalendarPage() {
               </Button>
             )}
 
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => { window.location.href = `/teacher/meetings/${selectedMeeting._id}/attendance`; }}
+            >
+              <Users className="h-4 w-4" /> Présences
+            </Button>
+
             <div className="flex gap-3 pt-2">
               <Button
                 variant="outline"

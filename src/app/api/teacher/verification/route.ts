@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import Notification from "@/models/Notification";
+import { ADMIN_ROLE_QUERY } from "@/lib/roles";
 
 // Teacher submits their completed profile for admin review.
 export async function POST() {
@@ -54,7 +55,7 @@ export async function POST() {
     await user.save();
 
     // Notify all admins that a teacher is awaiting review.
-    const admins = await User.find({ role: "admin" }).select("_id").lean();
+    const admins = await User.find(ADMIN_ROLE_QUERY).select("_id").lean();
     if (admins.length > 0) {
       await Notification.insertMany(
         admins.map((a) => ({
