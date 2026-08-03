@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Content from "@/models/Content";
+import { isAdmin } from "@/lib/roles";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     // Admins can request all teachers' content with scope=all; everyone else
     // is scoped to the content they own.
     const filter: Record<string, unknown> = {};
-    if (!(session.role === "admin" && scope === "all")) {
+    if (!(isAdmin(session.role) && scope === "all")) {
       filter.teacher = session.userId;
     }
     if (subject) filter.subject = subject;
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Teachers only" }, { status: 403 });
     }
 

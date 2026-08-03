@@ -25,7 +25,6 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentAssignments } from "@/components/assignments/student-assignments";
-import { LinkParentCard } from "@/components/parent/link-parent-card";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useDict } from "@/lib/i18n/context";
 import { getInitials, cn, isMeetingEnded } from "@/lib/utils";
@@ -683,9 +682,6 @@ export default function ProfilePage() {
                     )}
                   </div>
                 </div>
-
-                {/* Share code so a parent can follow this student's progress */}
-                <LinkParentCard />
               </>
             )}
 

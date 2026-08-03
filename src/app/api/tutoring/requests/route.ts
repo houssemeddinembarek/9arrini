@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongodb";
 import { notifyUsers } from "@/lib/notifications";
 import TutoringRequest from "@/models/TutoringRequest";
 import User from "@/models/User";
+import { isAdmin } from "@/lib/roles";
 
 // List tutoring requests, shaped per role:
 //  - teacher → incoming requests (with student info)
@@ -15,7 +16,7 @@ export async function GET() {
 
     await connectDB();
 
-    if (session.role === "teacher" || session.role === "admin") {
+    if (session.role === "teacher" || isAdmin(session.role)) {
       const requests = await TutoringRequest.find({ teacher: session.userId })
         .populate("student", "name email avatar")
         .sort({ status: 1, createdAt: -1 })

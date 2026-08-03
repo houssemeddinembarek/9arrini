@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import Quiz from "@/models/Quiz";
 import { xpForDifficulty } from "@/lib/leveling";
+import { isAdmin } from "@/lib/roles";
 import { z } from "zod";
 
 const questionSchema = z.object({
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     const classe = searchParams.get("classe");
 
     const query: Record<string, unknown> = {};
-    if (mine && (session.role === "teacher" || session.role === "admin")) {
+    if (mine && (session.role === "teacher" || isAdmin(session.role))) {
       query.createdBy = session.userId;
     } else {
       query.status = "published";
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
-    if (!session || !["teacher", "admin"].includes(session.role)) {
+    if (!session || !(session.role === "teacher" || isAdmin(session.role))) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 

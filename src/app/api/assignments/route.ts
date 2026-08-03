@@ -6,6 +6,7 @@ import Assignment from "@/models/Assignment";
 import Submission from "@/models/Submission";
 import Group from "@/models/Group";
 import Content from "@/models/Content";
+import { isAdmin } from "@/lib/roles";
 import "@/models/User";
 
 // List "travaux à faire" — teachers see what they created, students see what's
@@ -17,7 +18,7 @@ export async function GET() {
 
     await connectDB();
 
-    if (session.role === "teacher" || session.role === "admin") {
+    if (session.role === "teacher" || isAdmin(session.role)) {
       const assignments = await Assignment.find({ teacher: session.userId })
         .populate("content", "title contentType pdfUrl")
         .populate("group", "name")
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Teachers only" }, { status: 403 });
     }
 

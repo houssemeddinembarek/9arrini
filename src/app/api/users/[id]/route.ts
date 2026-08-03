@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import User from "@/models/User";
+import { isAdmin } from "@/lib/roles";
 
 export async function GET(
   _request: NextRequest,
@@ -32,7 +33,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    if (session.userId !== id && session.role !== "admin") {
+    if (session.userId !== id && !isAdmin(session.role)) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 

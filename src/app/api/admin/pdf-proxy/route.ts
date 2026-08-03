@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 
 // Streams a Cloudinary-hosted PDF back through our own origin with proper
 // inline PDF headers so it renders natively in the admin dashboard viewer
 // (raw Cloudinary delivery often forces a download instead of inline display).
 export async function GET(request: NextRequest) {
   const session = await getServerSession();
-  if (!session || session.role !== "admin") {
+  if (!session || !isAdmin(session.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

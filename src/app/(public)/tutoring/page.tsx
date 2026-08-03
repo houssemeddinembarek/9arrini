@@ -217,10 +217,6 @@ export default function TutoringPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-2xl font-bold">{tutor.price} DT</p>
-                    <p className="text-xs text-[hsl(var(--muted-foreground))]">{t.perHour}</p>
-                  </div>
                 </div>
 
                 {tutor.bio && (

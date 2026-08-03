@@ -79,7 +79,7 @@ export function Pricing() {
                 variant={plan.variant}
                 className={cn("w-full mb-8", plan.highlight && "shadow-lg shadow-[hsl(var(--primary))]/30")}
                 onClick={() =>
-                  router.push(plan.role === "teacher" ? "/register?role=teacher" : "/register?role=student")
+                  router.push(plan.role === "teacher" ? "/register/teacher" : "/register")
                 }
               >
                 {p.cta}

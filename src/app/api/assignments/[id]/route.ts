@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Assignment from "@/models/Assignment";
 import Submission from "@/models/Submission";
+import { isAdmin } from "@/lib/roles";
 import "@/models/Content";
 import "@/models/User";
 
@@ -24,7 +25,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
     const isOwner = String(assignment.teacher?._id ?? assignment.teacher) === session.userId;
 
-    if (isOwner || session.role === "admin") {
+    if (isOwner || isAdmin(session.role)) {
       const submissions = await Submission.find({ assignment: id })
         .populate("student", "name email avatar")
         .sort({ status: 1, updatedAt: -1 })

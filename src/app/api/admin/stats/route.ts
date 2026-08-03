@@ -5,11 +5,12 @@ import User from "@/models/User";
 import Course from "@/models/Course";
 import Enrollment from "@/models/Enrollment";
 import Booking from "@/models/Booking";
+import { isAdmin } from "@/lib/roles";
 
 export async function GET() {
   try {
     const session = await getServerSession();
-    if (!session || session.role !== "admin") {
+    if (!session || !isAdmin(session.role)) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 

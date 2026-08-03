@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Submission from "@/models/Submission";
+import { isAdmin } from "@/lib/roles";
 import "@/models/Assignment";
 import "@/models/Content";
 
@@ -33,7 +34,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Teachers only" }, { status: 403 });
     }
 
@@ -54,7 +55,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
       } | null>();
 
     if (!submission) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (String(submission.teacher) !== session.userId && session.role !== "admin") {
+    if (String(submission.teacher) !== session.userId && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Not your student" }, { status: 403 });
     }
     if (!submission.workImages?.length) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import Quiz from "@/models/Quiz";
+import { isAdmin } from "@/lib/roles";
 
 // GET /api/quizzes/[id]
 //  - owner/admin → full quiz (with answers) for editing
@@ -24,7 +25,7 @@ export async function GET(
     }
 
     const isOwner =
-      String(quiz.createdBy) === session.userId || session.role === "admin";
+      String(quiz.createdBy) === session.userId || isAdmin(session.role);
 
     const base = {
       id: String(quiz._id),
@@ -72,7 +73,7 @@ export async function DELETE(
     if (!quiz) {
       return NextResponse.json({ success: false, error: "Quiz not found" }, { status: 404 });
     }
-    if (String(quiz.createdBy) !== session.userId && session.role !== "admin") {
+    if (String(quiz.createdBy) !== session.userId && !isAdmin(session.role)) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 

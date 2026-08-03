@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import User from "@/models/User";
 import Notification from "@/models/Notification";
+import { isAdmin } from "@/lib/roles";
 
 // Admin approves or rejects a teacher's verification. On rejection a message
 // explaining what's missing is required and delivered to the teacher.
@@ -12,7 +13,7 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession();
-    if (!session || session.role !== "admin") {
+    if (!session || !isAdmin(session.role)) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 

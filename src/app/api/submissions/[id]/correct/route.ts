@@ -5,6 +5,7 @@ import { notifyUsers } from "@/lib/notifications";
 import { uploadImageToCloudinary, isCloudinaryConfigured } from "@/lib/cloudinary";
 import Submission from "@/models/Submission";
 import Assignment from "@/models/Assignment";
+import { isAdmin } from "@/lib/roles";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Teachers only" }, { status: 403 });
     }
 
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const submission = await Submission.findById(id);
     if (!submission) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (String(submission.teacher) !== session.userId && session.role !== "admin") {
+    if (String(submission.teacher) !== session.userId && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Not your student" }, { status: 403 });
     }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 
 const CONTENT_TYPE_LABELS: Record<string, string> = {
   resume: "Résumé de cours",
@@ -265,7 +266,7 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ success: false, error: "Teachers only" }, { status: 403 });
     }
 

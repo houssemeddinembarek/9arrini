@@ -19,7 +19,7 @@ interface RecentUser {
   _id: string;
   name: string;
   email: string;
-  role: "student" | "teacher" | "admin";
+  role: "student" | "teacher" | "admin" | "parent" | "superadmin";
   isApproved?: boolean;
   createdAt: string;
   avatar?: string;
@@ -155,7 +155,7 @@ export default function AdminDashboard() {
                     <p className="text-sm font-medium">{u.name}</p>
                     <p className="text-xs text-[hsl(var(--muted-foreground))]">{u.email}</p>
                   </div>
-                  <Badge variant={u.role === "teacher" ? "purple" : u.role === "admin" ? "destructive" : "blue"} className="capitalize">
+                  <Badge variant={u.role === "teacher" ? "purple" : u.role === "superadmin" ? "warning" : u.role === "admin" ? "destructive" : "blue"} className="capitalize">
                     {u.role}
                   </Badge>
                   <span className="text-xs text-[hsl(var(--muted-foreground))] hidden sm:block">{formatRelativeTime(u.createdAt)}</span>

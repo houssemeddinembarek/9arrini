@@ -17,6 +17,7 @@ import { getInitials, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useNotificationStore } from "@/stores/useNotificationStore";
 import { useI18n } from "@/lib/i18n/context";
+import { isAdmin } from "@/lib/roles";
 
 type NavKey = "profs" | "cours" | "assistantIA";
 
@@ -66,8 +67,9 @@ export function Navbar() {
 
   // Students have no separate dashboard — their hub is the profile screen.
   const getDashboardLink = () => {
-    if (user?.role === "admin") return "/admin";
+    if (isAdmin(user?.role)) return "/admin";
     if (user?.role === "teacher") return "/teacher";
+    if (user?.role === "parent") return "/parent";
     return "/profile";
   };
 

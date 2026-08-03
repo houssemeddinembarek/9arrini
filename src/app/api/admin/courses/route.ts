@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { getServerSession } from "@/lib/auth";
 import Course from "@/models/Course";
+import { isAdmin } from "@/lib/roles";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession();
-    if (!session || session.role !== "admin") {
+    if (!session || !isAdmin(session.role)) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 

@@ -35,7 +35,7 @@ export function FinalCTA() {
             size="xl"
             variant="gradient"
             className="w-full sm:w-auto shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50"
-            onClick={() => router.push("/register?role=student")}
+            onClick={() => router.push("/register")}
           >
             {t.ctaStudent}
             <ArrowRight className="h-5 w-5" />

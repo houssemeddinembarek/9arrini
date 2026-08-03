@@ -7,7 +7,7 @@ import {
   BookOpen, LayoutDashboard, GraduationCap, Users, Settings,
   BarChart2, MessageSquare, Calendar, Brain,
   Video, FileText, ChevronLeft, ChevronRight, LogOut,
-  UsersRound, FileQuestion, ClipboardList,
+  UsersRound, FileQuestion, ClipboardList, ShieldCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -75,8 +75,16 @@ const ADMIN_NAV: NavItem[] = [
   { key: "settings", href: "/admin/settings", icon: Settings },
 ];
 
+// The super admin gets the full admin menu plus direct entries into the other
+// spaces, so every part of the app is reachable from one sidebar.
+const SUPERADMIN_NAV: NavItem[] = [
+  ...ADMIN_NAV,
+  { key: "teacherSpace", href: "/teacher", icon: ShieldCheck },
+  { key: "parentSpace", href: "/parent", icon: UsersRound },
+];
+
 interface SidebarProps {
-  role?: "student" | "teacher" | "admin" | "parent";
+  role?: "student" | "teacher" | "admin" | "parent" | "superadmin";
 }
 
 export function Sidebar({ role = "student" }: SidebarProps) {
@@ -87,6 +95,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
   const nav = dict.dashboard.nav;
 
   const navItems =
+    role === "superadmin" ? SUPERADMIN_NAV :
     role === "admin" ? ADMIN_NAV :
     role === "teacher" ? TEACHER_NAV :
     role === "parent" ? PARENT_NAV :

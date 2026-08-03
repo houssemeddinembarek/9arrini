@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { notifyUsers } from "@/lib/notifications";
 import TutoringRequest from "@/models/TutoringRequest";
+import { isAdmin } from "@/lib/roles";
 import "@/models/User";
 
 // Teacher accepts or rejects a student's reservation request, then notifies the
@@ -11,7 +12,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const session = await getServerSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (session.role !== "teacher" && session.role !== "admin") {
+    if (session.role !== "teacher" && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Teachers only" }, { status: 403 });
     }
 
@@ -24,7 +25,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const reqDoc = await TutoringRequest.findById(id).populate<{ teacher: unknown }>("teacher", "name");
     if (!reqDoc) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (String((reqDoc.teacher as { _id?: unknown })?._id ?? reqDoc.teacher) !== session.userId && session.role !== "admin") {
+    if (String((reqDoc.teacher as { _id?: unknown })?._id ?? reqDoc.teacher) !== session.userId && !isAdmin(session.role)) {
       return NextResponse.json({ error: "Not your request" }, { status: 403 });
     }
 

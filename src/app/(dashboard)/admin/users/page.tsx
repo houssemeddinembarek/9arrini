@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Search, Filter, MoreVertical, Shield, UserX, CheckCircle2, XCircle, BadgeCheck, Eye, FileText, ExternalLink, AlertTriangle, Image as ImageIcon, Globe, AtSign, Link2, Hash, Calendar, Sparkles, BookOpen } from "lucide-react";
+import { Search, Filter, MoreVertical, Shield, ShieldOff, UserX, CheckCircle2, XCircle, BadgeCheck, Eye, FileText, ExternalLink, AlertTriangle, Image as ImageIcon, Globe, AtSign, Link2, Hash, Calendar, Sparkles, BookOpen, KeyRound, Copy, Check, RefreshCw, Loader2, Mail, Send, MapPin, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getInitials, formatDate } from "@/lib/utils";
+import { canManageUser, isAdmin, isSuperAdmin } from "@/lib/roles";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface VerificationDoc {
   name: string;
@@ -35,11 +37,25 @@ interface TeachingProfile {
   experienceYears?: number;
 }
 
+interface StudentProfile {
+  stage?: string;
+  year?: string;
+  section?: string;
+  governorate?: string;
+}
+
+interface LinkedParent {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 interface AdminUser {
   _id: string;
   name: string;
   email: string;
-  role: "student" | "teacher" | "admin";
+  studentProfile?: StudentProfile;
+  role: "student" | "teacher" | "admin" | "parent" | "superadmin";
   provider?: "local" | "google" | "facebook";
   isVerified: boolean;
   isApproved: boolean;
@@ -251,7 +267,214 @@ function TeacherDetails({ user }: { user: AdminUser }) {
   );
 }
 
+// The student's parent-link code lives here and nowhere else: the student never
+// sees it. An admin reads it, sends it to the parent (by email or by hand), and
+// can rotate it if it leaks.
+function ParentLinkSection({ student }: { student: AdminUser }) {
+  const [code, setCode] = useState("");
+  const [parents, setParents] = useState<LinkedParent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [rotating, setRotating] = useState(false);
+  const [copied, setCopied] = useState<"code" | "link" | null>(null);
+  const [email, setEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+
+  const inviteUrl = code ? `${window.location.origin}/register/parent?code=${code}` : "";
+
+  const load = useCallback(async (method: "GET" | "POST") => {
+    try {
+      const res = await fetch(`/api/admin/users/${student._id}/link-code`, { method });
+      const json = await res.json();
+      if (json.success) {
+        setCode(json.data.code);
+        setParents(json.data.parents || []);
+      } else {
+        toast.error(json.error || "Failed to load the code");
+      }
+    } catch {
+      toast.error("Failed to load the code");
+    } finally {
+      setLoading(false);
+      setRotating(false);
+    }
+  }, [student._id]);
+
+  // Deferred a tick so the fetch never sets state synchronously on mount —
+  // same pattern as the debounced user search below.
+  useEffect(() => {
+    const t = setTimeout(() => load("GET"), 0);
+    return () => clearTimeout(t);
+  }, [load]);
+
+  const copy = (value: string, what: "code" | "link") => {
+    navigator.clipboard.writeText(value);
+    setCopied(what);
+    setTimeout(() => setCopied(null), 2000);
+    toast.success(what === "code" ? "Code copied" : "Invite link copied");
+  };
+
+  const rotate = () => {
+    if (!confirm("Generate a new code? The current one will stop working.")) return;
+    setRotating(true);
+    load("POST");
+  };
+
+  const invite = async () => {
+    if (!email.trim()) return;
+    setInviting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${student._id}/invite-parent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) { toast.error(json.error || "Could not send the invitation"); return; }
+      toast.success(`Invitation sent to ${email.trim()}`);
+      setEmail("");
+    } catch {
+      toast.error("Could not send the invitation");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-4 space-y-3">
+      <p className="text-sm font-medium flex items-center gap-2">
+        <KeyRound className="h-4 w-4 text-[hsl(var(--primary))]" /> Parent link code
+      </p>
+
+      {loading ? (
+        <div className="py-3 flex justify-center text-[hsl(var(--muted-foreground))]">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-center text-lg font-mono font-bold tracking-[0.3em] bg-[hsl(var(--background))] rounded-xl py-2.5 select-all">
+              {code}
+            </code>
+            <Button variant="outline" size="icon" onClick={() => copy(code, "code")} title="Copy code">
+              {copied === "code" ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            </Button>
+            <Button variant="outline" size="icon" onClick={rotate} disabled={rotating} title="New code">
+              <RefreshCw className={`h-4 w-4 ${rotating ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+
+          <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => copy(inviteUrl, "link")}>
+            {copied === "link" ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Link2 className="h-3.5 w-3.5" />}
+            Copy the parent sign-up link
+          </Button>
+
+          {/* Send it straight to the parent */}
+          <div className="pt-3 border-t border-[hsl(var(--border))]">
+            <p className="text-xs font-medium flex items-center gap-1.5 mb-2">
+              <Mail className="h-3.5 w-3.5 text-[hsl(var(--primary))]" /> Send to the parent
+            </p>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="parent@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") invite(); }}
+              />
+              <Button variant="outline" onClick={invite} loading={inviting} disabled={!email.trim() || inviting}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Who is already following this student */}
+          <div className="pt-3 border-t border-[hsl(var(--border))]">
+            <p className="text-xs font-medium mb-2">
+              Linked parents {parents.length > 0 && `(${parents.length})`}
+            </p>
+            {parents.length === 0 ? (
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">No parent linked yet.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {parents.map((p) => (
+                  <li key={p._id} className="flex items-center gap-2 text-sm">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="gradient-bg text-white text-[10px] font-bold">
+                        {getInitials(p.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-xs text-[hsl(var(--muted-foreground))] truncate">{p.email}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function StudentDetails({ user }: { user: AdminUser }) {
+  const sp = user.studentProfile;
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <Avatar className="h-14 w-14">
+          <AvatarImage src={user.avatar} />
+          <AvatarFallback className="gradient-bg text-white font-bold">{getInitials(user.name)}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="font-semibold">{user.name}</p>
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">{user.email}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+        <span className="text-[hsl(var(--muted-foreground))] flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" /> Niveau</span>
+        <span>{sp?.stage || "—"}{sp?.year ? ` · ${sp.year}` : ""}{sp?.section ? ` · ${sp.section}` : ""}</span>
+
+        <span className="text-[hsl(var(--muted-foreground))] flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Gouvernorat</span>
+        <span>{sp?.governorate || "—"}</span>
+
+        <span className="text-[hsl(var(--muted-foreground))] flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Joined</span>
+        <span>{formatDate(user.createdAt)}</span>
+
+        <span className="text-[hsl(var(--muted-foreground))] flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> XP / Level</span>
+        <span>{user.xp ?? 0} XP · Niveau {user.level ?? 1}</span>
+
+        <span className="text-[hsl(var(--muted-foreground))] flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> Cours suivis</span>
+        <span>{user.enrolledCourses?.length ?? 0}</span>
+
+        <span className="text-[hsl(var(--muted-foreground))] flex items-center gap-1.5"><Hash className="h-3.5 w-3.5" /> User ID</span>
+        <span className="font-mono text-xs break-all">{user._id}</span>
+      </div>
+
+      <ParentLinkSection student={user} />
+    </div>
+  );
+}
+
+// Role chip colours — super admins stand out from ordinary admins.
+function RoleBadge({ role }: { role: AdminUser["role"] }) {
+  const variant =
+    role === "superadmin" ? "warning" :
+    role === "admin" ? "destructive" :
+    role === "teacher" ? "purple" :
+    role === "parent" ? "secondary" :
+    "blue";
+  return (
+    <Badge variant={variant} className="capitalize gap-1">
+      {role === "superadmin" && <Shield className="h-3 w-3" />}
+      {role === "superadmin" ? "Super admin" : role}
+    </Badge>
+  );
+}
+
 export default function AdminUsersPage() {
+  const { user: me } = useAuthStore();
+  const superAdmin = isSuperAdmin(me?.role);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -361,7 +584,11 @@ export default function AdminUsersPage() {
     <div className="space-y-6 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold">User Management</h1>
-        <p className="text-[hsl(var(--muted-foreground))] mt-1">Manage all platform users</p>
+        <p className="text-[hsl(var(--muted-foreground))] mt-1">
+          {superAdmin
+            ? "Manage every account on the platform, administrators included"
+            : "Manage all platform users"}
+        </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -383,7 +610,9 @@ export default function AdminUsersPage() {
             <SelectItem value="all">All Roles</SelectItem>
             <SelectItem value="student">Students</SelectItem>
             <SelectItem value="teacher">Teachers</SelectItem>
+            <SelectItem value="parent">Parents</SelectItem>
             <SelectItem value="admin">Admins</SelectItem>
+            <SelectItem value="superadmin">Super admins</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -414,6 +643,9 @@ export default function AdminUsersPage() {
               </thead>
               <tbody>
                 {users.map((user) => {
+                  // A plain admin can only act on non-admin accounts; a super
+                  // admin can act on anyone but themselves.
+                  const manageable = canManageUser(me?.role, user.role) && user._id !== me?._id;
                   return (
                   <tr key={user._id} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--muted))]/20 transition-colors">
                     <td className="px-4 py-3">
@@ -431,9 +663,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <Badge variant={user.role === "teacher" ? "purple" : user.role === "admin" ? "destructive" : "blue"} className="capitalize">
-                        {user.role}
-                      </Badge>
+                      <RoleBadge role={user.role} />
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
                       {user.role === "teacher" ? (
@@ -480,7 +710,7 @@ export default function AdminUsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {user.role === "teacher" && (
+                            {(user.role === "teacher" || user.role === "student") && (
                               <DropdownMenuItem onClick={() => setViewUser(user)}>
                                 <Eye className="h-4 w-4 mr-2" /> View details
                               </DropdownMenuItem>
@@ -500,27 +730,44 @@ export default function AdminUsersPage() {
                                 </DropdownMenuItem>
                               )
                             )}
-                            {!user.isVerified && (
+                            {!user.isVerified && manageable && (
                               <DropdownMenuItem
                                 onClick={() => patchUser(user._id, { isVerified: true }, `${user.name} verified`)}
                               >
                                 <BadgeCheck className="h-4 w-4 mr-2" /> Verify User
                               </DropdownMenuItem>
                             )}
-                            {user.role !== "admin" && (
+                            {/* Granting or revoking admin rights is reserved for super admins.
+                                The super admin role itself is only set in the database. */}
+                            {superAdmin && manageable && !isAdmin(user.role) && (
                               <DropdownMenuItem
                                 onClick={() => patchUser(user._id, { role: "admin", isApproved: true }, `${user.name} is now an admin`)}
                               >
                                 <Shield className="h-4 w-4 mr-2" /> Make Admin
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-500 focus:text-red-500"
-                              onClick={() => deleteUser(user._id)}
-                            >
-                              <UserX className="h-4 w-4 mr-2" /> Remove User
-                            </DropdownMenuItem>
+                            {superAdmin && manageable && user.role === "admin" && (
+                              <DropdownMenuItem
+                                onClick={() => patchUser(user._id, { role: "student" }, `${user.name} is no longer an admin`)}
+                              >
+                                <ShieldOff className="h-4 w-4 mr-2" /> Revoke Admin
+                              </DropdownMenuItem>
+                            )}
+                            {manageable ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-500 focus:text-red-500"
+                                  onClick={() => deleteUser(user._id)}
+                                >
+                                  <UserX className="h-4 w-4 mr-2" /> Remove User
+                                </DropdownMenuItem>
+                              </>
+                            ) : (
+                              <DropdownMenuItem disabled>
+                                {user._id === me?._id ? "This is your account" : "Super admin only"}
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -534,14 +781,20 @@ export default function AdminUsersPage() {
         )}
       </div>
 
-      {/* Read-only teacher profile */}
+      {/* Read-only profile: teacher verification, or student + parent code */}
       <Dialog open={!!viewUser} onOpenChange={(open) => !open && setViewUser(null)}>
         <DialogContent className="max-w-lg w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Teacher details</DialogTitle>
+            <DialogTitle>
+              {viewUser?.role === "student" ? "Student details" : "Teacher details"}
+            </DialogTitle>
           </DialogHeader>
 
-          {viewUser && <TeacherDetails user={viewUser} />}
+          {viewUser && (
+            viewUser.role === "student"
+              ? <StudentDetails user={viewUser} />
+              : <TeacherDetails user={viewUser} />
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewUser(null)}>Close</Button>
