@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Navbar } from "@/components/shared/navbar";
@@ -17,6 +17,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { locale } = useI18n();
   const dir = getDir(locale);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Never leave the drawer open across a navigation (back/forward included).
+  const [drawerPath, setDrawerPath] = useState(pathname);
+  if (drawerPath !== pathname) {
+    setDrawerPath(pathname);
+    setMobileSidebarOpen(false);
+  }
+
+  // Escape closes the drawer.
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileSidebarOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileSidebarOpen]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -70,15 +86,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Sidebar role={role} />
         </div>
 
-        {/* Mobile sidebar overlay */}
+        {/* Mobile sidebar drawer.
+            The backdrop and the panel are siblings so a tap anywhere outside the
+            panel reaches the backdrop and closes the drawer. */}
         {mobileSidebarOpen && (
-          <div className="fixed inset-0 z-40 md:hidden pt-16">
+          <div className="md:hidden">
             <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 top-16 z-40 bg-black/50"
               onClick={() => setMobileSidebarOpen(false)}
+              aria-hidden
             />
-            <div className="relative h-full">
-              <Sidebar role={role} />
+            <div className="fixed left-0 top-16 bottom-0 z-40 w-[240px] shadow-xl">
+              <Sidebar role={role} mobile onNavigate={() => setMobileSidebarOpen(false)} />
             </div>
           </div>
         )}

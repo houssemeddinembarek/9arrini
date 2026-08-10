@@ -85,10 +85,15 @@ const SUPERADMIN_NAV: NavItem[] = [
 
 interface SidebarProps {
   role?: "student" | "teacher" | "admin" | "parent" | "superadmin";
+  /** Rendered inside the mobile drawer: always expanded, no collapse toggle. */
+  mobile?: boolean;
+  /** Called when the user picks a destination, so the drawer can close itself. */
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ role = "student" }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+export function Sidebar({ role = "student", mobile = false, onNavigate }: SidebarProps) {
+  const [collapsedState, setCollapsed] = useState(false);
+  const collapsed = mobile ? false : collapsedState;
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const { dict } = useI18n();
@@ -117,7 +122,8 @@ export function Sidebar({ role = "student" }: SidebarProps) {
     <TooltipProvider>
       <aside
         className={cn(
-          "relative flex flex-col h-full bg-[hsl(var(--card))] border-r border-[hsl(var(--border))] transition-all duration-300",
+          "relative flex flex-col h-full bg-[hsl(var(--card))] border-r border-[hsl(var(--border))]",
+          !mobile && "transition-all duration-300",
           collapsed ? "w-[70px]" : "w-[240px]"
         )}
       >
@@ -136,6 +142,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
                     <TooltipTrigger asChild>
                       <Link
                         href={item.href}
+                        onClick={onNavigate}
                         className={cn(
                           "flex h-10 w-10 items-center justify-center rounded-xl transition-colors mx-auto",
                           active
@@ -155,6 +162,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={onNavigate}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
                     active
@@ -212,7 +220,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 shrink-0 text-[hsl(var(--muted-foreground))] hover:text-red-500"
-                onClick={() => logout()}
+                onClick={() => { onNavigate?.(); logout(); }}
               >
                 <LogOut className="h-3.5 w-3.5" />
               </Button>
@@ -220,7 +228,8 @@ export function Sidebar({ role = "student" }: SidebarProps) {
           )}
         </div>
 
-        {/* Collapse toggle */}
+        {/* Collapse toggle — the mobile drawer is always expanded. */}
+        {!mobile && (
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-20 w-6 h-6 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--background))] flex items-center justify-center hover:bg-[hsl(var(--accent))] transition-colors shadow-sm"
@@ -231,6 +240,7 @@ export function Sidebar({ role = "student" }: SidebarProps) {
             <ChevronLeft className="h-3 w-3" />
           )}
         </button>
+        )}
       </aside>
     </TooltipProvider>
   );
