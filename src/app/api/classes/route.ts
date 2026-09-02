@@ -6,6 +6,7 @@ import ClassSession from "@/models/ClassSession";
 import ClassEnrollment from "@/models/ClassEnrollment";
 import User from "@/models/User";
 import { isAdmin } from "@/lib/roles";
+import { getFreeSeanceStatus } from "@/lib/free-seances";
 
 // List classes, shaped per role:
 //  - admin   → every class with pending/confirmed counts
@@ -75,16 +76,23 @@ export async function GET() {
       .lean();
 
     const myEnrollments = await ClassEnrollment.find({ student: session.userId })
-      .select("classSession status")
-      .lean<{ classSession: unknown; status: string }[]>();
+      .select("classSession status isFree")
+      .lean<{ classSession: unknown; status: string; isFree?: boolean }[]>();
     const statusBy: Record<string, string> = {};
-    for (const e of myEnrollments) statusBy[String(e.classSession)] = e.status;
+    const freeBy: Record<string, boolean> = {};
+    for (const e of myEnrollments) {
+      statusBy[String(e.classSession)] = e.status;
+      freeBy[String(e.classSession)] = !!e.isFree;
+    }
 
     const withStatus = classes.map((c) => ({
       ...c,
       myStatus: statusBy[String(c._id)] ?? null,
+      myEnrollmentIsFree: freeBy[String(c._id)] ?? false,
     }));
-    return NextResponse.json({ success: true, data: { classes: withStatus } });
+    // The student's free-séance balance, so the page can say what joining costs.
+    const freeSeances = await getFreeSeanceStatus(session.userId);
+    return NextResponse.json({ success: true, data: { classes: withStatus, freeSeances } });
   } catch (error) {
     console.error("Classes GET error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

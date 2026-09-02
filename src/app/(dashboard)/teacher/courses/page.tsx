@@ -295,7 +295,7 @@ export default function TeacherCoursesPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Matière *</Label>
                 <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
@@ -323,7 +323,7 @@ export default function TeacherCoursesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Trimestre *</Label>
                 <Select value={form.trimestre} onValueChange={(v) => setForm((f) => ({ ...f, trimestre: v }))}>

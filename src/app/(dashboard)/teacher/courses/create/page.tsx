@@ -197,7 +197,7 @@ export default function CreateCoursePage() {
                 {errors.description && <p className="text-xs text-red-500">{errors.description.message}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Matière *</Label>
                   <Select onValueChange={(v) => setValue("category", v)}>
@@ -233,7 +233,7 @@ export default function CreateCoursePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Trimestre *</Label>
                   <Select onValueChange={(v) => setValue("trimestre", v)}>
@@ -342,7 +342,7 @@ export default function CreateCoursePage() {
               <div className="space-y-1.5">
                 <Label>Language</Label>
                 <Select defaultValue="English" onValueChange={(v) => setValue("language", v)}>
-                  <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {["English", "French", "Spanish", "Arabic", "German", "Chinese"].map((lang) => (
                       <SelectItem key={lang} value={lang}>{lang}</SelectItem>

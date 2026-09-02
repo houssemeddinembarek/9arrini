@@ -34,6 +34,7 @@ const fr = {
       title: "Crée ton compte",
       subtitle: "Rejoins Telmidhi",
       iAmA: "Je suis…",
+      backToRoles: "Choisir un autre profil",
       studentTitle: "Crée ton compte élève",
       studentSubtitle: "Rejoins Telmidhi et commence à apprendre",
       teacherTitle: "Créer un compte enseignant",

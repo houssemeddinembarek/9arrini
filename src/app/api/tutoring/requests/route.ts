@@ -1,9 +1,12 @@
+import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { notifyUsers } from "@/lib/notifications";
 import TutoringRequest from "@/models/TutoringRequest";
 import User from "@/models/User";
+import Group from "@/models/Group";
+import { ensureTutoringIndexes } from "@/lib/tutoring-indexes";
 import { isAdmin } from "@/lib/roles";
 
 // List tutoring requests, shaped per role:
@@ -19,6 +22,7 @@ export async function GET() {
     if (session.role === "teacher" || isAdmin(session.role)) {
       const requests = await TutoringRequest.find({ teacher: session.userId })
         .populate("student", "name email avatar")
+        .populate("group", "name subject level color")
         .sort({ status: 1, createdAt: -1 })
         .lean();
       return NextResponse.json({ success: true, data: { requests } });
@@ -26,6 +30,7 @@ export async function GET() {
 
     const requests = await TutoringRequest.find({ student: session.userId })
       .populate("teacher", "name avatar")
+      .populate("group", "name subject level color")
       .sort({ createdAt: -1 })
       .lean();
     return NextResponse.json({ success: true, data: { requests } });
@@ -45,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const { teacherId } = await request.json();
+    const { teacherId, groupId } = await request.json();
     if (!teacherId) return NextResponse.json({ error: "teacherId required" }, { status: 400 });
 
     const teacher = await User.findOne({ _id: teacherId, role: "teacher", isApproved: true })
@@ -53,7 +58,24 @@ export async function POST(request: NextRequest) {
       .lean<{ _id: unknown } | null>();
     if (!teacher) return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
 
-    const existing = await TutoringRequest.findOne({ student: session.userId, teacher: teacherId });
+    // A student reserves a place in one of the teacher's groups. The group must
+    // belong to that teacher, so a crafted id can't enrol them elsewhere.
+    let group: { _id: Types.ObjectId; name: string } | null = null;
+    if (groupId) {
+      group = await Group.findOne({ _id: groupId, teacher: teacherId })
+        .select("_id name")
+        .lean<{ _id: Types.ObjectId; name: string } | null>();
+      if (!group) return NextResponse.json({ error: "Groupe introuvable" }, { status: 404 });
+    }
+
+    await ensureTutoringIndexes();
+
+    // Reservations are per group; a request without one stays teacher-level.
+    const existing = await TutoringRequest.findOne(
+      group
+        ? { student: session.userId, group: group._id }
+        : { student: session.userId, teacher: teacherId, group: { $exists: false } }
+    );
     if (existing && existing.status !== "rejected") {
       return NextResponse.json(
         { success: true, data: { status: existing.status }, message: "Demande déjà envoyée" }
@@ -67,12 +89,19 @@ export async function POST(request: NextRequest) {
       existing.respondedAt = undefined;
       reqDoc = await existing.save();
     } else {
-      reqDoc = await TutoringRequest.create({ student: session.userId, teacher: teacherId, status: "pending" });
+      reqDoc = await TutoringRequest.create({
+        student: session.userId,
+        teacher: teacherId,
+        ...(group ? { group: group._id } : {}),
+        status: "pending",
+      });
     }
 
     await notifyUsers([String(teacherId)], {
       title: "Nouvelle demande de réservation",
-      message: `${session.name} souhaite réserver des séances avec vous.`,
+      message: group
+        ? `${session.name} souhaite rejoindre votre groupe "${group.name}".`
+        : `${session.name} souhaite réserver des séances avec vous.`,
       type: "info",
       link: "/teacher/tutoring",
     });

@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "curriculum:fetch": "node scripts/fetch-curriculum.mjs",
+    "curriculum:plan": "node scripts/fetch-curriculum.mjs --dry-run",
+    "curriculum:index": "node scripts/build-curriculum-index.mjs",
+    "curriculum:chapters": "node scripts/extract-chapters.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -47,6 +51,7 @@
     "next-auth": "^5.0.0-beta.31",
     "next-themes": "^0.4.6",
     "nodemailer": "^7.0.13",
+    "pdfjs-dist": "^6.2.108",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.76.1",

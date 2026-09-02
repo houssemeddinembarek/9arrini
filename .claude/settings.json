@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -rn \"min-w-\\\\[[0-9]\\\\{3,\\\\}px\\\\]\\\\|w-\\\\[[3-9][0-9][0-9]px\\\\]\" --include=\"*.tsx\" src)"
+    ]
+  }
+}

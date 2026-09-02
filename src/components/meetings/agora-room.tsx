@@ -554,7 +554,8 @@ export function AgoraRoom({
   // A side panel (whiteboard or shared content) is open.
   const sidePanel = showBoard || showContent;
   const tiles = remoteUsers.length + 1;
-  const gridCols = sidePanel ? "grid-cols-1" : tiles <= 1 ? "grid-cols-1" : tiles <= 4 ? "grid-cols-2" : "grid-cols-3";
+  // Phones stay one column narrower than desktop so tiles keep a usable size.
+  const gridCols = sidePanel ? "grid-cols-1" : tiles <= 1 ? "grid-cols-1" : tiles <= 4 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3";
 
   // Side-panel roster: me first, then everyone else.
   const visibleMembers = Object.entries(roster);
@@ -623,7 +624,8 @@ export function AgoraRoom({
 
       {/* Stage (left) + side panel (whiteboard or shared content) on the right half */}
       <div className={cn("flex gap-3 flex-1 min-h-0", sidePanel && "flex-col lg:flex-row")}>
-        <div className={cn("flex gap-3 min-w-0 min-h-0", sidePanel ? "lg:w-1/2" : "flex-1")}>
+        {/* The roster sits under the stage on phones, beside it from sm up. */}
+        <div className={cn("flex flex-col sm:flex-row gap-3 min-w-0 min-h-0", sidePanel ? "lg:w-1/2" : "flex-1")}>
         {isTeacher ? (
           // Teacher: equal grid of everyone (scrolls inside its own box if crowded).
           <div className={cn("grid gap-3 flex-1 min-h-0 overflow-y-auto auto-rows-min content-start", gridCols)}>
@@ -688,7 +690,7 @@ export function AgoraRoom({
         )}
 
         {showPanel && (
-          <div className="w-64 shrink-0 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden flex flex-col">
+          <div className="w-full sm:w-64 shrink-0 max-h-[45vh] sm:max-h-none rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden flex flex-col">
             <div className="px-4 py-3 border-b border-[hsl(var(--border))] text-sm font-semibold flex items-center gap-2">
               <Users className="h-4 w-4 text-[hsl(var(--primary))]" /> Participants
             </div>
@@ -758,25 +760,26 @@ export function AgoraRoom({
 
       {/* Controls — pinned to the bottom of the room (always visible, no page scroll) */}
       <div className="shrink-0 flex justify-center pt-1">
-        <div className="flex items-center justify-center gap-3 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))]/95 px-4 py-2 shadow-lg backdrop-blur">
-          <Button variant={micOn ? "outline" : "destructive"} size="icon" className="h-12 w-12 rounded-full" onClick={toggleMic} title={micOn ? "Couper le micro" : "Activer le micro"}>
+        {/* Wraps to a second row rather than running off a phone screen. */}
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 max-w-full rounded-3xl sm:rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))]/95 px-3 sm:px-4 py-2 shadow-lg backdrop-blur">
+          <Button variant={micOn ? "outline" : "destructive"} size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={toggleMic} title={micOn ? "Couper le micro" : "Activer le micro"}>
             {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
           </Button>
-          <Button variant={camOn ? "outline" : "destructive"} size="icon" className="h-12 w-12 rounded-full" onClick={toggleCam} title={camOn ? "Couper la caméra" : "Activer la caméra"}>
+          <Button variant={camOn ? "outline" : "destructive"} size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={toggleCam} title={camOn ? "Couper la caméra" : "Activer la caméra"}>
             {camOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
           </Button>
-          <Button variant={sharing ? "gradient" : "outline"} size="icon" className="h-12 w-12 rounded-full" onClick={toggleScreen} title={sharing ? "Arrêter le partage" : "Partager l'écran"}>
+          <Button variant={sharing ? "gradient" : "outline"} size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={toggleScreen} title={sharing ? "Arrêter le partage" : "Partager l'écran"}>
             <MonitorUp className="h-5 w-5" />
           </Button>
           {/* The whiteboard toggle is teacher-only; students simply follow whatever the teacher opens. */}
           {isTeacher && (
-            <Button variant={showBoard ? "gradient" : "outline"} size="icon" className="h-12 w-12 rounded-full" onClick={toggleBoard} title={showBoard ? "Masquer le tableau" : "Ouvrir le tableau"}>
+            <Button variant={showBoard ? "gradient" : "outline"} size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={toggleBoard} title={showBoard ? "Masquer le tableau" : "Ouvrir le tableau"}>
               <Presentation className="h-5 w-5" />
             </Button>
           )}
           {/* Share prepared content with students (teacher-only). */}
           {isTeacher && (
-            <Button variant={showContent ? "gradient" : "outline"} size="icon" className="h-12 w-12 rounded-full" onClick={openPicker} title="Partager du contenu">
+            <Button variant={showContent ? "gradient" : "outline"} size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={openPicker} title="Partager du contenu">
               <FileText className="h-5 w-5" />
             </Button>
           )}
@@ -785,7 +788,7 @@ export function AgoraRoom({
             <Button
               variant={recording ? "destructive" : "outline"}
               size="icon"
-              className="h-12 w-12 rounded-full"
+              className="h-10 w-10 sm:h-12 sm:w-12 rounded-full"
               onClick={toggleRecord}
               disabled={recordingBusy}
               title={recording ? "Arrêter l'enregistrement" : "Enregistrer la réunion"}
@@ -794,10 +797,10 @@ export function AgoraRoom({
             </Button>
           )}
           {/* Collapse the header to free up vertical space */}
-          <Button variant="outline" size="icon" className="h-12 w-12 rounded-full" onClick={() => setShowHeader((v) => !v)} title={showHeader ? "Masquer l'en-tête" : "Afficher l'en-tête"}>
+          <Button variant="outline" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={() => setShowHeader((v) => !v)} title={showHeader ? "Masquer l'en-tête" : "Afficher l'en-tête"}>
             {showHeader ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
           </Button>
-          <Button variant="destructive" size="icon" className="h-12 w-12 rounded-full" onClick={leave} title="Quitter">
+          <Button variant="destructive" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={leave} title="Quitter">
             <PhoneOff className="h-5 w-5" />
           </Button>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { signToken } from "@/lib/jwt";
+import { getFreeSeanceSetting } from "@/lib/free-seances";
 import User from "@/models/User";
 import { z } from "zod";
 
@@ -44,6 +45,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Stamp today's free-séance grant onto the student, so a later change to
+    // the platform setting doesn't alter what this student was promised.
+    const freeSeancesAllowance = role === "student" ? await getFreeSeanceSetting() : 0;
+
     const user = await User.create({
       name,
       email,
@@ -53,7 +58,7 @@ export async function POST(request: NextRequest) {
       isApproved: role !== "teacher",
       studentProfile:
         role === "student"
-          ? { stage, year, section: section || "", governorate }
+          ? { stage, year, section: section || "", governorate, freeSeancesAllowance }
           : undefined,
     });
 

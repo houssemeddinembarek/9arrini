@@ -30,12 +30,12 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // Sign-up is split per role: /register is student-only, teachers and parents
-  // have their own pages. Invitations sent before the split pointed at
-  // /register?role=parent&code=… — keep those links working.
+  // Sign-up is split per role: /register is the role chooser, each actor has
+  // its own page underneath it. Marketing CTAs and older invitations point at
+  // /register?role=…&code=… — send those straight to the right form.
   if (pathname === "/register") {
     const role = request.nextUrl.searchParams.get("role");
-    if (role === "parent" || role === "teacher") {
+    if (role === "parent" || role === "teacher" || role === "student") {
       const target = new URL(`/register/${role}`, request.url);
       const code = request.nextUrl.searchParams.get("code");
       if (code) target.searchParams.set("code", code);

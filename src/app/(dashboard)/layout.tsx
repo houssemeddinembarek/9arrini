@@ -70,7 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const role = user?.role || "student";
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-[100dvh] overflow-hidden">
       {/* Shared site navbar (fixed top-0, h-16) */}
       <Navbar />
 

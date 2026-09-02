@@ -1,9 +1,8 @@
-import { RegisterForm } from "@/components/auth/register-form";
+import { RoleChooser } from "@/components/auth/role-chooser";
 
-// The public sign-up page is student-only. Teachers and parents each have their
-// own URL (/register/teacher, /register/parent) that is shared with them
-// directly rather than advertised here. Legacy ?role= links are redirected to
-// those pages by the proxy.
+// Sign-up starts with a role choice. Each actor then gets its own form under
+// /register/<role>, because the fields differ per role (schooling for students,
+// the child code for parents, admin verification for teachers).
 export default function RegisterPage() {
-  return <RegisterForm role="student" />;
+  return <RoleChooser />;
 }

@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Meeting from "@/models/Meeting";
 import Attendance from "@/models/Attendance";
+import { ensureAttendanceIndexes } from "@/lib/attendance-indexes";
 import "@/models/User";
 
 const VALID = new Set(["present", "absent", "late"]);
@@ -64,8 +65,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         },
       }));
 
-    // Cast: Mongoose casts the string ids to ObjectId at runtime.
-    if (ops.length) await Attendance.bulkWrite(ops as Parameters<typeof Attendance.bulkWrite>[0]);
+    if (ops.length) {
+      await ensureAttendanceIndexes();
+      // Cast: Mongoose casts the string ids to ObjectId at runtime.
+      await Attendance.bulkWrite(ops as Parameters<typeof Attendance.bulkWrite>[0]);
+    }
     return NextResponse.json({ success: true, data: { saved: ops.length } });
   } catch (error) {
     console.error("attendance POST error:", error);

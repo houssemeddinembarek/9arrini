@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, AtSign, Code2, Link2, Play, Mail } from "lucide-react";
+import { AtSign, Code2, Link2, Play, Mail } from "lucide-react";
+import { Logo } from "@/components/shared/logo";
 import { useI18n } from "@/lib/i18n/context";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
@@ -61,27 +62,22 @@ export function Footer() {
   const t = dict.footer;
 
   return (
-    <footer className="bg-[hsl(var(--muted))]/30 border-t border-[hsl(var(--border))]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
+    <footer className="border-t border-border bg-surface">
+      <div className="container-page py-14 sm:py-16">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-6 lg:gap-8">
           {/* Brand */}
-          <div className="lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl mb-4">
-              <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center">
-                <BookOpen className="h-4 w-4 text-white" />
-              </div>
-              <span className="gradient-text">Telmidhi</span>
-            </Link>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6 leading-relaxed">
+          <div className="lg:col-span-2 lg:pe-10">
+            <Logo />
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               {t.tagline}
             </p>
-            <div className="flex gap-3">
+            <div className="mt-6 flex gap-2">
               {SOCIAL_LINKS.map(({ icon: Icon, href, label }) => (
                 <a
                   key={label}
                   href={href}
                   aria-label={label}
-                  className="w-9 h-9 rounded-lg border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] hover:border-[hsl(var(--primary))]/50 transition-colors"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <Icon className="h-4 w-4" />
                 </a>
@@ -91,34 +87,35 @@ export function Footer() {
 
           {/* Links */}
           {FOOTER_COLUMNS.map(({ column, links }) => (
-            <div key={column}>
-              <h4 className="font-semibold text-sm mb-4">{t.columns[column]}</h4>
-              <ul className="space-y-3">
+            <nav key={column} aria-label={t.columns[column]}>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {t.columns[column]}
+              </h4>
+              <ul className="mt-4 space-y-2.5">
                 {links.map(({ key, href }) => (
                   <li key={key}>
                     <Link
                       href={href}
-                      className="text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                      className="text-sm text-foreground/75 transition-colors hover:text-primary"
                     >
                       {t.links[key]}
                     </Link>
                   </li>
                 ))}
               </ul>
-            </div>
+            </nav>
           ))}
         </div>
 
-        {/* Bottom bar */}
-        <div className="mt-12 pt-8 border-t border-[hsl(var(--border))] flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">
+        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 sm:flex-row">
+          <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} Telmidhi. {t.rights}
           </p>
-          <div className="flex items-center gap-1 text-sm text-[hsl(var(--muted-foreground))]">
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
             {t.madeWith}
-            <span className="text-red-500 mx-1">♥</span>
+            <span className="mx-0.5 text-[hsl(var(--destructive))]">♥</span>
             {t.inTunisia}
-          </div>
+          </p>
         </div>
       </div>
     </footer>

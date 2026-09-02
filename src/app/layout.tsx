@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/shared/providers";
 import { getLocale } from "@/lib/i18n/server";
@@ -9,6 +9,16 @@ import { getDir } from "@/lib/i18n/config";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+// Arabic is the default locale, so it gets a face designed for the script
+// rather than whatever the OS falls back to. Plex Arabic shares Inter's
+// humanist proportions, so mixed FR/AR pages keep one voice.
+const plexArabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-arabic",
   display: "swap",
 });
 
@@ -53,7 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang={locale}
       dir={getDir(locale)}
-      className={`${inter.variable} h-full`}
+      className={`${inter.variable} ${plexArabic.variable} h-full`}
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased">

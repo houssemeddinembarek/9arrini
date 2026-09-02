@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  GraduationCap, Clock, CalendarDays, Wallet, Loader2, Video, BookX, Hourglass,
+  GraduationCap, Clock, CalendarDays, Wallet, Loader2, Video, BookX, Hourglass, Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getInitials, formatDate } from "@/lib/utils";
+import { getInitials, formatDate, cn } from "@/lib/utils";
 
 type JoinStatus = "pending" | "confirmed" | "rejected" | "cancelled" | null;
 
@@ -25,10 +25,14 @@ interface ClassRow {
   price: number;
   teacher?: { name: string; avatar?: string };
   myStatus: JoinStatus;
+  myEnrollmentIsFree?: boolean;
 }
+
+interface FreeSeances { allowance: number; used: number; remaining: number }
 
 export default function StudentClassesPage() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
+  const [freeSeances, setFreeSeances] = useState<FreeSeances | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState<string | null>(null);
 
@@ -37,7 +41,10 @@ export default function StudentClassesPage() {
       try {
         const res = await fetch("/api/classes");
         const json = await res.json();
-        if (json.success) setClasses(json.data.classes);
+        if (json.success) {
+          setClasses(json.data.classes);
+          setFreeSeances(json.data.freeSeances ?? null);
+        }
       } catch {
         toast.error("Failed to load classes");
       } finally {
@@ -52,7 +59,13 @@ export default function StudentClassesPage() {
       const res = await fetch(`/api/classes/${id}/join`, { method: "POST" });
       const json = await res.json();
       if (json.success) {
-        setClasses((p) => p.map((c) => (c._id === id ? { ...c, myStatus: "pending" } : c)));
+        // A free séance enrols on the spot; otherwise it waits for payment.
+        const usedFree = !!json.data?.isFree;
+        const status: JoinStatus = json.data?.status === "confirmed" ? "confirmed" : "pending";
+        setClasses((p) => p.map((c) => (c._id === id ? { ...c, myStatus: status, myEnrollmentIsFree: usedFree } : c)));
+        if (usedFree) {
+          setFreeSeances((f) => (f ? { ...f, used: f.used + 1, remaining: Math.max(0, f.remaining - 1) } : f));
+        }
         toast.success(json.message || "Request sent");
       } else {
         toast.error(json.error || "Could not join");
@@ -64,6 +77,11 @@ export default function StudentClassesPage() {
     }
   };
 
+  // Mirrors the server rule: a free séance is spent only on a class that costs
+  // something, and only while the student still has one left.
+  const coveredByFreeSeance = (c: ClassRow) =>
+    !c.myStatus && c.price > 0 && (freeSeances?.remaining ?? 0) > 0;
+
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
@@ -72,6 +90,39 @@ export default function StudentClassesPage() {
         </h1>
         <p className="text-[hsl(var(--muted-foreground))] mt-1">Browse available classes and join. You&apos;re enrolled once the admin confirms your payment.</p>
       </div>
+
+      {/* Free-séance balance: what the next join will cost. */}
+      {freeSeances && freeSeances.allowance > 0 && (
+        <div
+          className={cn(
+            "rounded-2xl border p-4 flex items-start gap-3",
+            freeSeances.remaining > 0
+              ? "border-[hsl(var(--primary))]/30 bg-[hsl(var(--primary))]/5"
+              : "border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40"
+          )}
+        >
+          <Gift className={cn("h-5 w-5 shrink-0 mt-0.5", freeSeances.remaining > 0 ? "text-[hsl(var(--primary))]" : "text-[hsl(var(--muted-foreground))]")} />
+          <div className="min-w-0">
+            {freeSeances.remaining > 0 ? (
+              <>
+                <p className="text-sm font-medium">
+                  Il te reste {freeSeances.remaining} séance{freeSeances.remaining > 1 ? "s" : ""} gratuite{freeSeances.remaining > 1 ? "s" : ""}
+                </p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                  Tu es inscrit immédiatement, sans paiement. Ensuite, les séances sont payantes.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium">Séances gratuites épuisées</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+                  Tu as utilisé tes {freeSeances.allowance} séance{freeSeances.allowance > 1 ? "s" : ""} offerte{freeSeances.allowance > 1 ? "s" : ""}. Les prochaines inscriptions sont payantes.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20 text-[hsl(var(--muted-foreground))]"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -105,7 +156,17 @@ export default function StudentClassesPage() {
                 </div>
 
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  <div className="flex items-center gap-1 font-bold text-lg"><Wallet className="h-4 w-4 text-[hsl(var(--muted-foreground))]" /> {c.price} DT</div>
+                  {/* A free séance covers this class only while the balance lasts. */}
+                  {c.myEnrollmentIsFree ? (
+                    <Badge variant="success" className="gap-1"><Gift className="h-3 w-3" /> Séance gratuite</Badge>
+                  ) : coveredByFreeSeance(c) ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm line-through text-[hsl(var(--muted-foreground))]">{c.price} DT</span>
+                      <Badge variant="success" className="gap-1"><Gift className="h-3 w-3" /> Gratuite</Badge>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 font-bold text-lg"><Wallet className="h-4 w-4 text-[hsl(var(--muted-foreground))]" /> {c.price} DT</div>
+                  )}
                   {c.myStatus === "confirmed" ? (
                     <Link href={`/classes/${c._id}/room`}>
                       <Button size="sm" variant="gradient"><Video className="h-4 w-4" /> Enter class</Button>
@@ -115,8 +176,13 @@ export default function StudentClassesPage() {
                   ) : c.myStatus === "rejected" ? (
                     <Badge variant="destructive">Request declined</Badge>
                   ) : (
-                    <Button size="sm" variant="outline" disabled={joining === c._id} onClick={() => join(c._id)}>
-                      {joining === c._id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Join class"}
+                    <Button
+                      size="sm"
+                      variant={coveredByFreeSeance(c) ? "gradient" : "outline"}
+                      disabled={joining === c._id}
+                      onClick={() => join(c._id)}
+                    >
+                      {joining === c._id ? <Loader2 className="h-4 w-4 animate-spin" /> : coveredByFreeSeance(c) ? "Rejoindre gratuitement" : "Join class"}
                     </Button>
                   )}
                 </div>

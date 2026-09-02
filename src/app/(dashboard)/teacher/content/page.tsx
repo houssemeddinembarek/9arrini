@@ -215,7 +215,7 @@ export default function ContentLibraryPage() {
           />
         </div>
         <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Tous les types" />
           </SelectTrigger>

@@ -273,7 +273,7 @@ export default function CalendarPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar */}
-        <div className="lg:col-span-2 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+        <div className="lg:col-span-2 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 sm:p-5">
           {/* Month nav */}
           <div className="flex items-center justify-between mb-5">
             <button
@@ -445,7 +445,7 @@ export default function CalendarPage() {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setSelectedMeeting(null)}
           />
-          <div className="relative w-full max-w-md rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] p-6 shadow-xl space-y-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] p-4 sm:p-6 shadow-xl space-y-4 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-lg">{selectedMeeting.title}</h2>
@@ -492,8 +492,8 @@ export default function CalendarPage() {
                 </Badge>
               </div>
               {selectedMeeting.meetingUrl && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Link2 className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+                <div className="flex items-center gap-2 text-sm min-w-0">
+                  <Link2 className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))]" />
                   <a
                     href={selectedMeeting.meetingUrl}
                     target="_blank"
@@ -563,7 +563,7 @@ export default function CalendarPage() {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowModal(false)}
           />
-          <div className="relative w-full max-w-lg rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-lg rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] p-4 sm:p-6 shadow-xl max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-semibold text-lg">Schedule Meeting</h2>
               <button
@@ -609,7 +609,7 @@ export default function CalendarPage() {
                   <span className="text-sm font-medium">Participants</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Group</Label>
                     <select
@@ -671,7 +671,7 @@ export default function CalendarPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Start Time *</Label>
                   <div className="relative">

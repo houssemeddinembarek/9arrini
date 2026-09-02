@@ -5,7 +5,7 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="w-full max-w-md">
-        <div className="glass rounded-2xl border border-[hsl(var(--border))] p-8 shadow-2xl animate-pulse h-96" />
+        <div className="glass rounded-2xl border border-[hsl(var(--border))] p-6 sm:p-8 shadow-2xl animate-pulse h-96" />
       </div>
     }>
       <LoginForm />

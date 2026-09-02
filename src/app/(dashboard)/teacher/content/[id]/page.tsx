@@ -9,6 +9,11 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { resolveLanguage } from "@/lib/teaching-language";
+import { openPrintWindow } from "@/lib/pdf/print";
+import { mdToHtml } from "@/lib/pdf/markdown";
+import { PdfTemplate, defaultTemplateFor, getTemplate, templatesFor } from "@/lib/pdf/templates";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── KaTeX loader ─────────────────────────────────────────────────────────────
 
@@ -48,92 +53,31 @@ function renderKaTeX(el: HTMLElement) {
 
 // ─── Markdown → HTML ──────────────────────────────────────────────────────────
 
-function mdToHtml(text: string): string {
-  return text
-    .replace(/&(?![a-z#0-9]+;)/gi, "&amp;")
-    .replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/^---$/gm, "<hr>")
-    .replace(/^#### (.+)$/gm, "<h4>$1</h4>")
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>")
-    .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
-    .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
-    .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
-    .replace(/(<li>[\s\S]*?<\/li>\n?)+/gm, (m) => `<ul>${m}</ul>`)
-    .replace(/\n\n+/g, "</p><p>")
-    .replace(/\n/g, "<br>");
-}
+
 
 // ─── PDF print ────────────────────────────────────────────────────────────────
 
-function printAsPDF(item: ContentItem, htmlContent: string) {
-  const TYPE_LABELS: Record<string, string> = {
-    resume: "Résumé de cours",
-    exercices: "Série d'exercices",
-    devoir_controle: "Devoir de contrôle",
-    devoir_synthese: "Devoir de synthèse",
-    fiche_revision: "Fiche de révision",
-  };
-  const typeLabel = TYPE_LABELS[item.contentType] || item.contentType;
-  const year = new Date().getFullYear();
-
-  const win = window.open("", "_blank");
-  if (!win) { toast.error("Autorisez les popups pour télécharger le PDF"); return; }
-
-  win.document.write(`<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>${typeLabel} — ${item.title}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;padding:2cm;line-height:1.7}
-    .doc-header{border:2px solid #000;padding:10px 14px;margin-bottom:20px}
-    .doc-header table{width:100%;border-collapse:collapse}
-    .doc-header td{padding:3px 5px;font-size:10pt}
-    .doc-title{text-align:center;font-size:14pt;font-weight:bold;border-top:1px solid #000;margin-top:8px;padding-top:6px}
-    h1{font-size:15pt;margin:16px 0 8px;text-decoration:underline}
-    h2{font-size:13pt;margin:14px 0 7px;border-bottom:1px solid #ccc;padding-bottom:3px}
-    h3{font-size:12pt;margin:10px 0 5px}
-    h4{font-size:11pt;margin:8px 0 4px}
-    p,li{margin:5px 0}ul,ol{margin:5px 0 5px 20px}
-    blockquote{border-left:3px solid #666;padding-left:10px;margin:8px 0;color:#444;font-style:italic}
-    code{font-family:'Courier New',monospace;background:#f5f5f5;padding:1px 3px;font-size:10pt}
-    strong{font-weight:bold}hr{border:none;border-top:1px solid #999;margin:12px 0}
-    .footer{margin-top:28px;font-size:9pt;color:#888;text-align:center;border-top:1px solid #ddd;padding-top:6px}
-    @media print{body{padding:1.5cm}}
-  </style>
-</head>
-<body>
-  <div class="doc-header">
-    <table>
-      <tr><td>Établissement: _______________________</td><td style="text-align:right">Année: ${year}–${year + 1}</td></tr>
-      <tr><td>Classe: <strong>${item.level}</strong></td><td style="text-align:right">Date: ${new Date().toLocaleDateString("fr-TN")}</td></tr>
-    </table>
-    <div class="doc-title">${typeLabel} — ${item.subject}<br><span style="font-size:12pt">${item.title}</span></div>
-  </div>
-  <div id="content">${htmlContent}</div>
-  <div class="footer">Document généré par Telmidhi AI • Programme officiel tunisien</div>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"><\/script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"><\/script>
-  <script>
-    document.addEventListener("DOMContentLoaded",function(){
-      if(window.renderMathInElement){
-        window.renderMathInElement(document.getElementById("content"),{
-          delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],
-          throwOnError:false
-        });
-      }
-      setTimeout(()=>window.print(),800);
-    });
-  <\/script>
-</body></html>`);
-  win.document.close();
+function printAsPDF(item: ContentItem, htmlContent: string, template: PdfTemplate) {
+  const opened = openPrintWindow({
+    template,
+    header: {
+      contentType: item.contentType,
+      subject: item.subject,
+      level: item.level,
+      title: item.title,
+      devoirNumber: item.devoirNumber,
+      trimester: item.trimester,
+      establishment: item.establishment || undefined,
+      teacher: item.teacherName || undefined,
+      stampId: `9A-${item._id.slice(-8).toUpperCase()}`,
+      date: item.createdAt ? new Date(item.createdAt) : undefined,
+    },
+    html: htmlContent,
+    // The library stores no language: it follows from the subject and level,
+    // by the same rule the generator used when it wrote the document.
+    lang: resolveLanguage(item.subject, item.level),
+  });
+  if (!opened) toast.error("Autorisez les popups pour télécharger le PDF");
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -161,6 +105,10 @@ interface ContentItem {
   source: string;
   body: string;
   pdfUrl?: string;
+  devoirNumber?: number;
+  trimester?: number;
+  establishment?: string;
+  teacherName?: string;
   createdAt: string;
 }
 
@@ -176,6 +124,8 @@ export default function ContentViewerPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  // Empty until the teacher picks one — then it overrides the type's default.
+  const [templateId, setTemplateId] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -232,6 +182,7 @@ export default function ContentViewerPage({ params }: { params: Promise<{ id: st
   }
 
   const meta = TYPE_META[item.contentType] || TYPE_META.resume;
+  const template = templateId ? getTemplate(templateId) : defaultTemplateFor(item.contentType);
   const Icon = meta.icon;
   const hasBody = item.body && item.body.trim().length > 0;
 
@@ -281,11 +232,29 @@ export default function ContentViewerPage({ params }: { params: Promise<{ id: st
               </Button>
             )}
             {hasBody && (
-              <Button variant="gradient" size="sm"
-                onClick={() => printAsPDF(item, contentRef.current?.innerHTML || "")}>
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline text-xs">Télécharger PDF</span>
-              </Button>
+              <>
+                {/* Paper the document prints on */}
+                <Select value={template.id} onValueChange={setTemplateId}>
+                  <SelectTrigger className="h-8 w-[140px] sm:w-[168px] text-xs px-2.5" title={template.description}>
+                    <SelectValue placeholder="Modèle" />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-[320px]">
+                    {templatesFor(item.contentType).map((t) => (
+                      <SelectItem key={t.id} value={t.id} textValue={t.label}>
+                        <span className="flex flex-col gap-0.5 py-0.5">
+                          <span className="text-xs font-medium">{t.label}</span>
+                          <span className="text-[10px] leading-snug text-[hsl(var(--muted-foreground))]">{t.description}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="gradient" size="sm"
+                  onClick={() => printAsPDF(item, contentRef.current?.innerHTML || "", template)}>
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline text-xs">Télécharger PDF</span>
+                </Button>
+              </>
             )}
           </div>
         </div>

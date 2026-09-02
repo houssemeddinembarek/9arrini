@@ -340,11 +340,11 @@ export default function GroupsPage() {
               className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden"
             >
               {/* Group header */}
-              <div className="flex items-center gap-4 p-5">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 p-4 sm:p-5">
                 <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", GROUP_COLOR_CLASSES[group.color] || GROUP_COLOR_CLASSES.purple)}>
                   <Users className="h-5 w-5" />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[8rem]">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold">{group.name}</h3>
                     {group.subject && <Badge variant="secondary" className="text-xs">{group.subject}</Badge>}
@@ -356,8 +356,8 @@ export default function GroupsPage() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-sm text-[hsl(var(--muted-foreground))]">
+                <div className="flex items-center gap-2 shrink-0 ml-auto">
+                  <span className="text-sm text-[hsl(var(--muted-foreground))] whitespace-nowrap">
                     {group.students.length} student{group.students.length !== 1 ? "s" : ""}
                   </span>
                   <Button
@@ -533,7 +533,7 @@ export default function GroupsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Subject</Label>
                   <div className="relative">

@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Loader2, AlertTriangle, BookOpen, ClipboardList, Trophy,
-  Video, PlayCircle, CalendarDays, GraduationCap, UserCheck,
+  Video, PlayCircle, CalendarDays, GraduationCap, UserCheck, Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ interface Report {
     assignments: { total: number; corrected: number; pending: number };
     attendance: { present: number; total: number };
     courses: number;
+    freeSeances?: { allowance: number; used: number; remaining: number };
   };
   courses: { title: string; slug: string; progress: number; completedAt: string | null }[];
   quizzes: { title: string; subject: string; bestScore: number; passed: boolean; attempts: number }[];
@@ -118,6 +119,23 @@ export default function ChildReportPage() {
         <Tile icon={<ClipboardList className="h-3.5 w-3.5" />} value={summary.assignments.pending} label="À faire" />
         <Tile icon={<UserCheck className="h-3.5 w-3.5" />} value={`${summary.attendance.present}/${summary.attendance.total}`} label="Présences" />
       </div>
+
+      {/* Free séances the school granted — what is left before séances are paid. */}
+      {summary.freeSeances && summary.freeSeances.allowance > 0 && (
+        <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 flex items-start gap-3">
+          <Gift className="h-5 w-5 text-[hsl(var(--primary))] shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium">
+              Séances gratuites : {summary.freeSeances.remaining} restante{summary.freeSeances.remaining > 1 ? "s" : ""} sur {summary.freeSeances.allowance}
+            </p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5">
+              {summary.freeSeances.remaining > 0
+                ? "Votre enfant peut encore s'inscrire à des séances sans paiement."
+                : "Les séances offertes ont été utilisées : les prochaines inscriptions sont payantes."}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Courses */}
       <Section title="Cours & progression" icon={<BookOpen className="h-5 w-5 text-[hsl(var(--primary))]" />}>

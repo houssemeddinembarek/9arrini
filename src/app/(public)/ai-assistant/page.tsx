@@ -172,7 +172,7 @@ export default function AIAssistantPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-[100dvh]">
       <div className="flex flex-1 overflow-hidden pt-16">
         {/* Sidebar */}
         <div className="w-72 border-r border-[hsl(var(--border))] hidden lg:flex flex-col bg-[hsl(var(--card))]">
@@ -215,25 +215,36 @@ export default function AIAssistantPage() {
         {/* Chat Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="h-14 border-b border-[hsl(var(--border))] flex items-center justify-between px-4 sm:px-6 bg-[hsl(var(--background))]/95 backdrop-blur-sm shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center shadow">
+          <div className="h-14 border-b border-[hsl(var(--border))] flex items-center justify-between gap-2 px-4 sm:px-6 bg-[hsl(var(--background))]/95 backdrop-blur-sm shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center shadow shrink-0">
                 <Brain className="h-4 w-4 text-white" />
               </div>
-              <div>
-                <p className="font-semibold text-sm">Aria · Assistant scolaire</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate">Aria · Assistant scolaire</p>
                 <div className="flex items-center gap-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                   <span className="text-xs text-[hsl(var(--muted-foreground))]">En ligne</span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Badge variant="purple" className="hidden sm:flex gap-1">
                 <Sparkles className="h-3 w-3" /> Éducation
               </Badge>
+              {/* The conversation sidebar is desktop-only, so phones get the
+                  "new conversation" action here instead. */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 lg:hidden"
+                aria-label="Nouvelle conversation"
+                onClick={() => setMessages([INITIAL_MESSAGE])}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
               <Select value={subject} onValueChange={setSubject}>
-                <SelectTrigger className="h-8 w-40 text-xs">
+                <SelectTrigger className="h-8 w-28 sm:w-40 text-xs">
                   <SelectValue placeholder="Matière" />
                 </SelectTrigger>
                 <SelectContent>

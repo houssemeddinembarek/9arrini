@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Sparkles, Upload, FileText, BookOpen,
   ClipboardList, GraduationCap, RotateCcw, Download, Copy, Check,
-  Save, Library, Brain, Wand2, Plus, X, Trash2, Code2,
+  Save, Library, Brain, Wand2, Plus, X, Trash2, Code2, LayoutTemplate,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,19 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { buildDocHeader, docHeaderCSS } from "@/lib/pdf/document-header";
+import { openPrintWindow } from "@/lib/pdf/print";
+import {
+  PdfTemplate, defaultTemplateFor, getTemplate, templatePreviewCSS, templatesFor,
+} from "@/lib/pdf/templates";
+import {
+  docStrings, exerciseHeading, headerLang, paperNumberOf, trimesterLabel, typeLabel,
+} from "@/lib/pdf/i18n";
+import { exerciseToHtml, mdToHtml } from "@/lib/pdf/markdown";
+import { PaperStats, TASK_LABELS, TASK_TYPES } from "@/lib/pedagogy/types";
+import { chaptersFor, notionsFromSelection, titleFromSelection } from "@/lib/curriculum/chapters";
+import { Checkbox } from "@/components/ui/checkbox";
+import { resolveLanguage } from "@/lib/teaching-language";
 
 // ─── Tunisia Education Data ─────────────────────────────────────────────────
 
@@ -46,11 +60,23 @@ const CONTENT_TYPES = [
 ];
 
 const STRUCTURED_TYPES = new Set(["exercices", "devoir_controle", "devoir_synthese"]);
+const DIFFICULTIES = [
+  { id: "facile", label: "Facile", description: "Applications directes du cours, une notion par question." },
+  { id: "moyen", label: "Moyen", description: "Le registre habituel d'un devoir officiel." },
+  { id: "difficile", label: "Difficile", description: "Classe pilote: raisonnements à construire, questions en plusieurs étapes." },
+];
+
+// Devoirs are numbered within the school year; a série or a résumé is not.
+const NUMBERED_TYPES = new Set(["devoir_controle", "devoir_synthese"]);
 
 type Exercise = { statement: string; correction: string; points: string };
-type StructuredDoc = { summary: string; exercises: Exercise[] };
+// `document` is the support text / données / carte handed to the pupil — only
+// literary and human-sciences papers carry one.
+// A devoir carries no course summary — only the énoncés (and the corrigé).
+type StructuredDoc = { document?: string; summary?: string; exercises: Exercise[] };
 
 type RefineTarget =
+  | { kind: "document" }
   | { kind: "summary" }
   | { kind: "exercise"; index: number }
   | { kind: "correction"; index: number }
@@ -98,141 +124,61 @@ function renderKaTeX(el: HTMLElement) {
 
 // ─── Markdown → HTML (light) ─────────────────────────────────────────────────
 
-function mdToHtml(text: string): string {
-  return text
-    .replace(/&(?![a-z#0-9]+;)/gi, "&amp;")
-    .replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/^---$/gm, "<hr>")
-    .replace(/^#### (.+)$/gm, "<h4>$1</h4>")
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>")
-    .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
-    .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
-    .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
-    .replace(/(<li>[\s\S]*?<\/li>\n?)+/gm, (m) => `<ul>${m}</ul>`)
-    .replace(/\n\n+/g, "</p><p>")
-    .replace(/\n/g, "<br>");
+
+
+// ─── Remembered header identity ──────────────────────────────────────────────
+// Read through useSyncExternalStore so the server renders an empty field and
+// the browser fills it in on hydration, with no state update in an effect.
+
+const subscribeToNothing = () => () => {};
+
+function useStored(key: string): string {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => localStorage.getItem(key) ?? "",
+    () => "",
+  );
 }
 
 // ─── Structured ↔ Markdown ───────────────────────────────────────────────────
 
-function structuredToMarkdown(doc: StructuredDoc, withCorrection = true): string {
-  let md = "## Résumé du cours\n\n" + doc.summary.trim() + "\n\n---\n\n## Énoncés\n\n";
+// Section titles and exercise headings are written in the document's own
+// language — an Arabic paper is Arabic down to its headings.
+function structuredToMarkdown(doc: StructuredDoc, withCorrection = true, lang = "francais"): string {
+  const lg = headerLang(lang);
+  const S = docStrings(lg);
+  let md = doc.document?.trim()
+    ? `## ${S.supportDocument}\n\n` + doc.document.trim() + "\n\n---\n\n"
+    : "";
+  if (doc.summary?.trim()) {
+    md += `## ${S.summary}\n\n` + doc.summary.trim() + `\n\n---\n\n## ${S.statements}\n\n`;
+  }
   doc.exercises.forEach((ex, i) => {
-    md += `### Exercice ${i + 1}${ex.points ? ` — ${ex.points}` : ""}\n\n${ex.statement.trim()}\n\n`;
+    md += `### ${exerciseHeading(i, lg)}${ex.points ? ` — ${ex.points}` : ""}\n\n${ex.statement.trim()}\n\n`;
   });
   if (withCorrection) {
-    md += "\n---\n\n## Corrections\n\n";
+    md += `\n---\n\n## ${S.corrections}\n\n`;
     doc.exercises.forEach((ex, i) => {
-      md += `### Correction — Exercice ${i + 1}\n\n${ex.correction.trim()}\n\n`;
+      md += `### ${S.correction} — ${exerciseHeading(i, lg)}\n\n${ex.correction.trim()}\n\n`;
     });
   }
   return md;
 }
 
-// ─── Telmidhi CSS round seal (inline SVG, for PDF) ────────────────────
-
-const SEAL_SVG = `
-<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="110" height="110">
-  <defs>
-    <path id="circle-top" d="M 100,100 m -78,0 a 78,78 0 1,1 156,0" />
-    <path id="circle-bot" d="M 100,100 m -78,0 a 78,78 0 1,0 156,0" />
-  </defs>
-  <circle cx="100" cy="100" r="92" fill="none" stroke="#7c3aed" stroke-width="3"/>
-  <circle cx="100" cy="100" r="84" fill="none" stroke="#7c3aed" stroke-width="1"/>
-  <circle cx="100" cy="100" r="50" fill="none" stroke="#7c3aed" stroke-width="0.8" stroke-dasharray="2 3"/>
-  <text font-family="Georgia, 'Times New Roman', serif" font-size="14" font-weight="700" fill="#7c3aed" letter-spacing="2">
-    <textPath href="#circle-top" startOffset="50%" text-anchor="middle">★ TELMIDHI ★</textPath>
-  </text>
-  <text font-family="Georgia, 'Times New Roman', serif" font-size="11" font-weight="600" fill="#7c3aed" letter-spacing="3">
-    <textPath href="#circle-bot" startOffset="50%" text-anchor="middle">DOCUMENT OFFICIEL</textPath>
-  </text>
-  <text x="100" y="92" text-anchor="middle" font-family="Georgia, serif" font-size="32" font-weight="800" fill="#7c3aed">9</text>
-  <text x="100" y="110" text-anchor="middle" font-family="Georgia, serif" font-size="9" font-weight="700" fill="#7c3aed" letter-spacing="2">ACADEMY</text>
-  <text x="100" y="124" text-anchor="middle" font-family="Georgia, serif" font-size="7" fill="#7c3aed" letter-spacing="1.5">✦ AI CERTIFIÉ ✦</text>
-</svg>
-`;
-
 // ─── PDF print helper ─────────────────────────────────────────────────────────
 
 function printAsPDF(
   subject: string, level: string, contentType: string, title: string,
-  htmlContent: string, stampId: string, rtl = false,
+  htmlContent: string, stampId: string, template: PdfTemplate, lang: string,
+  paper: { devoirNumber?: number; trimester?: number; establishment?: string; teacher?: string },
 ) {
-  const typeLabel = CONTENT_TYPES.find((t) => t.id === contentType)?.label || contentType;
-  const year = new Date().getFullYear();
-
-  const win = window.open("", "_blank");
-  if (!win) { toast.error("Autorisez les popups pour télécharger le PDF"); return; }
-
-  win.document.write(`<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>${typeLabel} — ${title}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Times New Roman',Times,serif;font-size:12pt;color:#000;padding:2cm 2cm 2.5cm;line-height:1.7;position:relative}
-    .doc-header{border:2px solid #000;padding:10px 14px;margin-bottom:20px;position:relative;min-height:130px}
-    .doc-header table{width:100%;border-collapse:collapse;max-width:calc(100% - 130px)}
-    .doc-header td{padding:3px 5px;font-size:10pt}
-    .doc-title{text-align:center;font-size:14pt;font-weight:bold;border-top:1px solid #000;margin-top:8px;padding-top:6px;max-width:calc(100% - 130px)}
-    .seal{position:absolute;top:8px;right:8px;width:110px;height:110px}
-    .seal svg{display:block}
-    h1{font-size:15pt;margin:16px 0 8px;text-decoration:underline}
-    h2{font-size:13pt;margin:14px 0 7px;border-bottom:1px solid #ccc;padding-bottom:3px;color:#5b21b6}
-    h3{font-size:12pt;margin:10px 0 5px;color:#1e293b}
-    h4{font-size:11pt;margin:8px 0 4px}
-    p,li{margin:5px 0}ul,ol{margin:5px 0 5px 20px}
-    blockquote{border-left:3px solid #7c3aed;padding-left:10px;margin:8px 0;color:#444;font-style:italic;background:#faf5ff;padding:6px 10px;border-radius:0 4px 4px 0}
-    code{font-family:'Courier New',monospace;background:#f5f5f5;padding:1px 3px;font-size:10pt}
-    strong{font-weight:bold}hr{border:none;border-top:1px solid #999;margin:12px 0}
-    .watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:80pt;font-weight:900;color:rgba(124,58,237,0.06);letter-spacing:6px;pointer-events:none;z-index:0;white-space:nowrap;font-family:Georgia,serif}
-    .footer{margin-top:28px;font-size:9pt;color:#666;text-align:center;border-top:1px solid #ddd;padding-top:6px;display:flex;justify-content:space-between;align-items:center}
-    .footer .stamp-id{font-family:'Courier New',monospace;font-size:8pt;color:#7c3aed;font-weight:600}
-    #content{position:relative;z-index:1}
-    @media print{
-      body{padding:1.5cm 1.5cm 2cm}
-      .watermark{position:fixed}
-      @page{margin:1cm}
-    }
-  </style>
-</head>
-<body>
-  <div class="watermark">TELMIDHI</div>
-  <div class="doc-header">
-    <div class="seal">${SEAL_SVG}</div>
-    <table>
-      <tr><td>Établissement: _______________________</td><td style="text-align:right">Année: ${year}–${year + 1}</td></tr>
-      <tr><td>Classe: <strong>${level}</strong></td><td style="text-align:right">Date: ${new Date().toLocaleDateString("fr-TN")}</td></tr>
-    </table>
-    <div class="doc-title">${typeLabel} — ${subject}<br><span style="font-size:12pt">${title}</span></div>
-  </div>
-  <div id="content"${rtl ? ' dir="rtl" style="text-align:right"' : ''}>${htmlContent}</div>
-  <div class="footer">
-    <span>Document généré par <strong>Telmidhi</strong> • Programme officiel tunisien</span>
-    <span class="stamp-id">Ref: ${stampId}</span>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"><\/script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"><\/script>
-  <script>
-    document.addEventListener("DOMContentLoaded",function(){
-      if(window.renderMathInElement){
-        window.renderMathInElement(document.getElementById("content"),{
-          delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],
-          throwOnError:false
-        });
-      }
-      setTimeout(()=>window.print(),900);
-    });
-  <\/script>
-</body></html>`);
-  win.document.close();
+  const opened = openPrintWindow({
+    template,
+    header: { contentType, subject, level, title, stampId, ...paper },
+    html: htmlContent,
+    lang,
+  });
+  if (!opened) toast.error("Autorisez les popups pour télécharger le PDF");
 }
 
 // ─── Refinable block: PDF-faithful section with hover-revealed AI action ─────
@@ -246,6 +192,7 @@ function RefinableBlock({
   refining,
   katexReady,
   emptyLabel = "(vide)",
+  render = mdToHtml,
 }: {
   heading?: string;
   badge?: string;
@@ -255,6 +202,8 @@ function RefinableBlock({
   refining: boolean;
   katexReady: boolean;
   emptyLabel?: string;
+  /** Exercise bodies render through `exerciseToHtml`; prose through `mdToHtml` */
+  render?: (md: string) => string;
 }) {
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -285,7 +234,7 @@ function RefinableBlock({
       <div
         ref={previewRef}
         className="paper-prose"
-        dangerouslySetInnerHTML={{ __html: mdToHtml(value || emptyLabel) }}
+        dangerouslySetInnerHTML={{ __html: render(value || emptyLabel) }}
       />
     </div>
   );
@@ -298,20 +247,48 @@ type Mode = "choose" | "ai" | "upload" | "adapt";
 export default function GenerateContentPage() {
   const router = useRouter();
   const katexReady = useKaTeX();
+  const currentUser = useAuthStore((state) => state.user);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const [mode, setMode] = useState<Mode>("choose");
   const [subject, setSubject] = useState("");
   const [level, setLevel] = useState("");
   const [contentType, setContentType] = useState("");
-  const [title, setTitle] = useState("");
+  // A maths year runs over three trimestres, each with two devoirs de contrôle
+  // and one devoir de synthèse.
+  const [trimester, setTrimester] = useState(1);
+  const [devoirNumber, setDevoirNumber] = useState(1);
+  // How demanding the paper should be — the same chapter is not asked the same
+  // way in a collège de quartier and in a collège pilote.
+  const [difficulty, setDifficulty] = useState("moyen");
+  // Ruled space for the pupil to answer on the sheet. Default from the level
+  // (the norm through collège, not at lycée), overridable per paper.
+  const [answerLinesEdit, setAnswerLinesEdit] = useState<boolean | null>(null);
+  // Printed in the header. Typed once, then remembered for the next document:
+  // the stored value is the default until the teacher edits the field.
+  const [establishmentEdit, setEstablishmentEdit] = useState<string | null>(null);
+  const [teacherNameEdit, setTeacherNameEdit] = useState<string | null>(null);
+  const storedEstablishment = useStored("telmidhi.establishment");
+  const storedTeacher = useStored("telmidhi.teacherName");
+  const establishment = establishmentEdit ?? storedEstablishment;
+  const teacherName = teacherNameEdit ?? storedTeacher ?? currentUser?.name ?? "";
+  // Paragraphes du manuel cochés pour ce devoir.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  // Repli: niveau sans sommaire, ou enseignant qui préfère décrire lui-même.
+  const [freeTitle, setFreeTitle] = useState("");
+  const [freeMode, setFreeMode] = useState(false);
   const [notes, setNotes] = useState("");
   // Whether to also generate corrections (off = énoncés only, e.g. a blank exam).
   const [withCorrection, setWithCorrection] = useState(true);
   // Reflects what the currently-shown document actually contains.
   const [correctionsIncluded, setCorrectionsIncluded] = useState(true);
   // Output language of the generated document (Arabic for sciences up to collège).
-  const [language, setLanguage] = useState("francais");
+  // La langue du document découle de la matière et du niveau — la même règle
+  // que celle appliquée côté serveur. On la connaît donc avant de générer, ce
+  // qui permet d'afficher le chapitre et l'en-tête dans la bonne langue.
+  // `adaptedLanguage` ne sert qu'aux documents importés, dont la langue est
+  // celle du PDF d'origine.
+  const [adaptedLanguage, setAdaptedLanguage] = useState("");
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState("");
   const [structured, setStructured] = useState<StructuredDoc | null>(null);
@@ -322,6 +299,14 @@ export default function GenerateContentPage() {
   const [codeDraft, setCodeDraft] = useState("");
   const [savedId, setSavedId] = useState("");
   const [stampId, setStampId] = useState("");
+  // Équilibre pédagogique calculé par le serveur sur le devoir produit, et ce
+  // qui reste imparfait après la passe de réparation.
+  const [stats, setStats] = useState<PaperStats | null>(null);
+  const [warnings, setWarnings] = useState<{ code: string; severity: string; message: string }[]>([]);
+  // Paper the document is printed on. Follows the content type until the
+  // teacher picks one explicitly, then stays put.
+  const [templateId, setTemplateId] = useState("");
+  const [templateTouched, setTemplateTouched] = useState(false);
 
   // Refine modal state
   const [refineOpen, setRefineOpen] = useState(false);
@@ -357,31 +342,112 @@ export default function GenerateContentPage() {
     if (m === "ai" || m === "adapt" || m === "upload") setMode(m as Mode);
   }, []);
 
+  // Corpus: l'élève répond sur le sujet en 7ème (90 %), 8ème (73 %), 9ème (50 %);
+  // au lycée il répond sur une copie séparée (18 %).
+  const answerLinesDefault = /primaire|base/i.test(level);
+  const answerLines = answerLinesEdit ?? answerLinesDefault;
+
+  // Sommaire officiel du manuel pour ce niveau — null tant que la matière ou le
+  // niveau n'a pas de programme transcrit: on garde alors la saisie libre.
+  const chapterDomains = useMemo(() => chaptersFor(subject, level), [subject, level]);
+
+  const language = adaptedLanguage || (subject && level ? resolveLanguage(subject, level) : "francais");
+
+  // Le contenu du devoir: ce qui est coché dans le sommaire, sinon la saisie
+  // libre. Les identifiants étant propres à un niveau, changer de niveau vide
+  // naturellement la sélection.
+  const useCatalogue = !!chapterDomains && !freeMode;
+  const title = useCatalogue ? titleFromSelection(chapterDomains!, picked, language) : freeTitle;
+  const notions = useCatalogue ? notionsFromSelection(chapterDomains!, picked, language) : [];
+
   const canGenerate = subject && level && contentType && title.trim().length >= 3;
   const isStructured = !!structured;
   const rtl = language === "arabe";
 
   const fullMarkdown = useMemo(
-    () => (structured ? structuredToMarkdown(structured, correctionsIncluded) : generated),
-    [structured, generated, correctionsIncluded]
+    () => (structured ? structuredToMarkdown(structured, correctionsIncluded, language) : generated),
+    [structured, generated, correctionsIncluded, language]
   );
+
+  const template = useMemo(
+    () => (templateId ? getTemplate(templateId) : defaultTemplateFor(contentType)),
+    [templateId, contentType]
+  );
+  const templateChoices = useMemo(() => templatesFor(contentType), [contentType]);
+
+  // Trimestre and devoir number travel together, and only for a devoir.
+  const paperIdentity = useMemo(
+    () => (NUMBERED_TYPES.has(contentType) ? { devoirNumber, trimester } : {}),
+    [contentType, devoirNumber, trimester]
+  );
+
+  const previewHeader = useMemo(
+    () => buildDocHeader({
+      typeLabel: CONTENT_TYPES.find((t) => t.id === contentType)?.label || contentType,
+      contentType, subject, level, title, stampId, lang: language,
+      establishment: establishment.trim() || undefined,
+      teacher: teacherName.trim() || undefined,
+      ...paperIdentity,
+      banner: template.banner,
+      showStudentRow: template.showStudentRow,
+    }),
+    [contentType, subject, level, title, stampId, template, language, paperIdentity, establishment, teacherName]
+  );
+
+  // Header + sheet styling of the active template, scoped to the preview page.
+  // What the header will print, shown live under the pickers.
+  const paperHeading = useMemo(() => {
+    const lg = headerLang(language);
+    const n = paperNumberOf(contentType, devoirNumber, trimester);
+    const t = trimesterLabel(trimester, lg);
+    return `${typeLabel(contentType, lg, CONTENT_TYPES.find((c) => c.id === contentType)?.label, n)}${t ? ` — ${t}` : ""}`;
+  }, [contentType, devoirNumber, trimester, language]);
+
+  const previewCSS = useMemo(
+    () => docHeaderCSS(template.theme) + templatePreviewCSS(template),
+    [template]
+  );
+
+  const togglePicked = (ids: string[], select: boolean) => {
+    setPicked((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (select) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const rememberIdentity = () => {
+    localStorage.setItem("telmidhi.establishment", establishment);
+    localStorage.setItem("telmidhi.teacherName", teacherName);
+  };
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
+    if (!templateTouched) setTemplateId("");
+    rememberIdentity();
     setLoading(true);
     setGenerated("");
     setStructured(null);
+    setStats(null);
+    setWarnings([]);
     setSavedId("");
     setStampId(`9A-${Date.now().toString(36).toUpperCase()}`);
     try {
       const res = await fetch("/api/ai/generate-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, level, contentType, title, notes, withCorrection }),
+        body: JSON.stringify({
+          subject, level, contentType, title, notions, notes, withCorrection, difficulty, answerLines, ...paperIdentity,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) { toast.error(json.error || "Erreur de génération"); return; }
-      setLanguage(json.data.language || "francais");
+      setAdaptedLanguage("");
+      setStats(json.data.stats ?? null);
+      setWarnings(Array.isArray(json.data.warnings) ? json.data.warnings : []);
       if (json.data.format === "structured") {
         setStructured(json.data.structured);
         setCorrectionsIncluded(json.data.withCorrection !== false);
@@ -404,6 +470,7 @@ export default function GenerateContentPage() {
   };
 
   const refineKey = (t: RefineTarget) =>
+    t.kind === "document" ? "document" :
     t.kind === "summary" ? "summary" :
     t.kind === "exercise" ? `ex-${t.index}` :
     t.kind === "correction" ? `co-${t.index}` :
@@ -424,7 +491,9 @@ export default function GenerateContentPage() {
     };
 
     let body: Record<string, unknown> = { ...baseBody };
-    if (target.kind === "summary") {
+    if (target.kind === "document") {
+      body = { ...body, action: "refine_document", document: structured!.document || "" };
+    } else if (target.kind === "summary") {
       body = { ...body, action: "refine_summary", summary: structured!.summary };
     } else if (target.kind === "exercise") {
       const ex = structured!.exercises[target.index];
@@ -455,6 +524,9 @@ export default function GenerateContentPage() {
       } else {
         setStructured((prev) => {
           if (!prev) return prev;
+          if (target.kind === "document") {
+            return { ...prev, document: json.data.text };
+          }
           if (target.kind === "summary") {
             return { ...prev, summary: json.data.text };
           }
@@ -492,13 +564,16 @@ export default function GenerateContentPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title, subject, level, contentType,
+          title, subject, level, contentType, ...paperIdentity,
+          establishment: establishment.trim() || undefined,
+          teacher: teacherName.trim() || undefined,
           source: "ai_generated",
           contentBody: fullMarkdown,
         }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error || "Erreur de sauvegarde"); return; }
+      rememberIdentity();
       setSavedId(json.data.item._id);
       toast.success("Sauvegardé dans la bibliothèque !");
     } catch {
@@ -513,6 +588,8 @@ export default function GenerateContentPage() {
     setAdapting(true);
     setGenerated("");
     setStructured(null);
+    setStats(null);
+    setWarnings([]);
     setSavedId("");
     try {
       const form = new FormData();
@@ -529,7 +606,9 @@ export default function GenerateContentPage() {
       setSubject(adaptSubject || "");
       setLevel(adaptLevel || "");
       setContentType(adaptType);
-      setTitle(`Adaptation — ${adaptFile.name.replace(".pdf", "")}`);
+      setFreeMode(true);
+      setFreeTitle(`Adaptation — ${adaptFile.name.replace(".pdf", "")}`);
+      setAdaptedLanguage("francais");
       setGenerated(json.data.content);
       setMode("ai");
       toast.success("Contenu adapté avec succès !");
@@ -594,10 +673,16 @@ export default function GenerateContentPage() {
 
   const handlePrintPDF = () => {
     const id = stampId || `9A-${Date.now().toString(36).toUpperCase()}`;
+    const headerIdentity = {
+      ...paperIdentity,
+      establishment: establishment.trim() || undefined,
+      teacher: teacherName.trim() || undefined,
+    };
+
     if (structured) {
-      printAsPDF(subject, level, contentType, title, renderStructuredToHTML(structured, correctionsIncluded), id, rtl);
+      printAsPDF(subject, level, contentType, title, renderStructuredToHTML(structured, correctionsIncluded, language), id, template, language, headerIdentity);
     } else {
-      printAsPDF(subject, level, contentType, title, mdToHtml(generated), id, rtl);
+      printAsPDF(subject, level, contentType, title, mdToHtml(generated), id, template, language, headerIdentity);
     }
   };
 
@@ -658,7 +743,7 @@ export default function GenerateContentPage() {
             <Label>Titre du document *</Label>
             <Input placeholder="ex: Cours de Mathématiques — Chapitre 3" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Matière *</Label>
               <Select onValueChange={setUploadSubject}>
@@ -726,7 +811,7 @@ export default function GenerateContentPage() {
             </div>
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Matière (optionnel)</Label>
               <Select onValueChange={setAdaptSubject}>
@@ -837,6 +922,72 @@ export default function GenerateContentPage() {
             })}
           </div>
 
+          {NUMBERED_TYPES.has(contentType) && (
+            <div className="space-y-3 p-3 rounded-xl border-2 border-[hsl(var(--border))]">
+              <div className="space-y-1.5">
+                <Label>Trimestre *</Label>
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((n) => (
+                    <button key={n} type="button" onClick={() => setTrimester(n)}
+                      className={`flex-1 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                        trimester === n
+                          ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]"
+                          : "border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40"
+                      }`}
+                    >
+                      {n === 1 ? "1er" : `${n}ème`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Two devoirs de contrôle per trimestre; the synthèse is the
+                  single one of its trimestre, so it takes its number. */}
+              {contentType === "devoir_controle" && (
+                <div className="space-y-1.5">
+                  <Label>Devoir de contrôle *</Label>
+                  <div className="flex gap-2">
+                    {[1, 2].map((n) => (
+                      <button key={n} type="button" onClick={() => setDevoirNumber(n)}
+                        className={`flex-1 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                          devoirNumber === n
+                            ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]"
+                            : "border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40"
+                        }`}
+                      >
+                        DC {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                En-tête : <span className="font-medium text-[hsl(var(--foreground))]">{paperHeading}</span>
+              </p>
+            </div>
+          )}
+
+          {STRUCTURED_TYPES.has(contentType) && level && (
+            <button
+              type="button"
+              onClick={() => setAnswerLinesEdit(!answerLines)}
+              className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40 transition-colors text-left"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Espace de réponse sur le sujet</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  {answerLines
+                    ? "Lignes pointillées après chaque question — l'élève écrit sur la feuille"
+                    : "Pas de lignes — l'élève répond sur une copie séparée"}
+                </p>
+              </div>
+              <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${answerLines ? "bg-[hsl(var(--primary))]" : "bg-[hsl(var(--muted))]"}`}>
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${answerLines ? "translate-x-5" : "translate-x-0.5"}`} />
+              </span>
+            </button>
+          )}
+
           {STRUCTURED_TYPES.has(contentType) && (
             <button
               type="button"
@@ -856,8 +1007,117 @@ export default function GenerateContentPage() {
           )}
 
           <div className="space-y-1.5">
-            <Label>Titre / Chapitre *</Label>
-            <Input placeholder="ex: Les suites numériques" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Label>Difficulté *</Label>
+            <div className="flex gap-2">
+              {DIFFICULTIES.map((d) => (
+                <button key={d.id} type="button" onClick={() => setDifficulty(d.id)}
+                  className={`flex-1 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                    difficulty === d.id
+                      ? "border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]"
+                      : "border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">
+              {DIFFICULTIES.find((d) => d.id === difficulty)?.description}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label>Contenu du devoir *</Label>
+              {chapterDomains && (
+                <button
+                  type="button"
+                  onClick={() => setFreeMode((v) => !v)}
+                  className="text-xs text-[hsl(var(--primary))] hover:underline"
+                >
+                  {freeMode ? "Choisir dans le manuel" : "Saisir moi-même"}
+                </button>
+              )}
+            </div>
+
+            {useCatalogue ? (
+              <>
+                {/* Sommaire du manuel: chapitres et paragraphes à cocher */}
+                <div className="max-h-72 overflow-auto rounded-xl border-2 border-[hsl(var(--border))] divide-y divide-[hsl(var(--border))]">
+                  {chapterDomains!.map((domain) => (
+                    <div key={domain.fr} className="px-3 py-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--primary))] mb-1.5">
+                        {domain.fr}
+                      </p>
+                      {domain.chapters.map((chapter) => {
+                        const ids = chapter.paragraphs.map((par) => par.id);
+                        const checkedCount = ids.filter((id) => picked.has(id)).length;
+                        const state = checkedCount === 0 ? false : checkedCount === ids.length ? true : "indeterminate";
+                        return (
+                          <div key={chapter.id} className="mb-2 last:mb-0">
+                            <label className="flex items-start gap-2 cursor-pointer group">
+                              <Checkbox
+                                className="mt-0.5"
+                                checked={state}
+                                onCheckedChange={() => togglePicked(ids, checkedCount < ids.length)}
+                              />
+                              <span className="text-sm font-medium leading-tight group-hover:text-[hsl(var(--primary))]">
+                                {chapter.fr}
+                                <span className="text-[hsl(var(--muted-foreground))] font-normal" dir="rtl"> — {chapter.ar}</span>
+                              </span>
+                            </label>
+                            <div className="ml-6 mt-1 space-y-1">
+                              {chapter.paragraphs.map((par) => (
+                                <label key={par.id} className="flex items-start gap-2 cursor-pointer group">
+                                  <Checkbox
+                                    className="mt-0.5"
+                                    checked={picked.has(par.id)}
+                                    onCheckedChange={() => togglePicked([par.id], !picked.has(par.id))}
+                                  />
+                                  <span className="text-xs leading-tight text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--foreground))]">
+                                    {par.fr}
+                                    <span dir="rtl"> — {par.ar}</span>
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  {picked.size === 0
+                    ? "Cochez les paragraphes du programme officiel que le devoir doit évaluer."
+                    : `${picked.size} paragraphe(s) — le devoir ne portera que sur eux.`}
+                </p>
+                {picked.size > 0 && rtl && (
+                  <p className="text-xs text-[hsl(var(--foreground))]" dir="rtl">{title}</p>
+                )}
+              </>
+            ) : (
+              <>
+                <Input
+                  placeholder="ex: Le théorème de Thalès"
+                  value={freeTitle}
+                  onChange={(e) => setFreeTitle(e.target.value)}
+                />
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Le chapitre exact traité par le devoir.</p>
+              </>
+            )}
+          </div>
+
+          {/* Printed in the header; remembered for the next document */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Établissement</Label>
+              <Input placeholder="ex: Collège Ibn Khaldoun" value={establishment} onChange={(e) => setEstablishmentEdit(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Enseignant</Label>
+              <Input placeholder="ex: M. Ben Salah" value={teacherName} onChange={(e) => setTeacherNameEdit(e.target.value)} />
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -922,6 +1182,28 @@ export default function GenerateContentPage() {
                     <Code2 className="h-4 w-4" />
                     <span className="hidden sm:inline text-xs">Code LaTeX</span>
                   </Button>
+                  {/* Paper the document prints on — preview follows the choice */}
+                  <Select
+                    value={template.id}
+                    onValueChange={(v) => { setTemplateId(v); setTemplateTouched(true); }}
+                  >
+                    <SelectTrigger className="h-8 w-[140px] sm:w-[168px] text-xs px-2.5" title={template.description}>
+                      <span className="flex items-center gap-1.5 truncate">
+                        <LayoutTemplate className="h-3.5 w-3.5 shrink-0 text-[hsl(var(--primary))]" />
+                        <SelectValue placeholder="Modèle" />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent className="max-w-[320px]">
+                      {templateChoices.map((t) => (
+                        <SelectItem key={t.id} value={t.id} textValue={t.label}>
+                          <span className="flex flex-col gap-0.5 py-0.5">
+                            <span className="text-xs font-medium">{t.label}</span>
+                            <span className="text-[10px] leading-snug text-[hsl(var(--muted-foreground))]">{t.description}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button variant="outline" size="sm" onClick={handlePrintPDF}>
                     <Download className="h-4 w-4" />
                     <span className="hidden sm:inline text-xs">PDF</span>
@@ -938,6 +1220,30 @@ export default function GenerateContentPage() {
                   )}
                 </div>
               </div>
+
+              {/* Équilibre pédagogique du devoir tel qu'il a été généré */}
+              {stats && (
+                <div className="flex items-center gap-3 flex-wrap px-4 py-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 text-xs">
+                  <span className="text-[hsl(var(--muted-foreground))]">Équilibre pédagogique</span>
+                  {TASK_TYPES.map((t) => (
+                    <span key={t} className="inline-flex items-center gap-1">
+                      <span className="font-semibold">{stats.byType[t].points} pts</span>
+                      <span className="text-[hsl(var(--muted-foreground))]">
+                        {TASK_LABELS[t].fr.toLowerCase()} ({stats.byType[t].questions} q.)
+                      </span>
+                    </span>
+                  ))}
+                  <span className="text-[hsl(var(--muted-foreground))]">• {stats.notionCount} notions</span>
+                  {warnings.length > 0 && (
+                    <span
+                      className="text-amber-600 cursor-help"
+                      title={warnings.map((w) => w.message).join("\n")}
+                    >
+                      • {warnings.length} point(s) à vérifier
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Source code editor — edit the Markdown/LaTeX and re-render */}
               {showCode ? (
@@ -967,57 +1273,62 @@ export default function GenerateContentPage() {
               /* "Desk" with the A4 paper */
               <div className="flex-1 overflow-auto bg-[#eef0f4] p-4 sm:p-6">
                 <div className="paper-page mx-auto bg-white shadow-[0_10px_40px_rgba(0,0,0,0.08)] rounded-sm relative overflow-hidden"
-                  style={{ maxWidth: "210mm", minHeight: "297mm", padding: "2cm 2cm 2.5cm", fontFamily: "'Times New Roman', Times, serif" }}>
+                  style={{ maxWidth: "210mm", minHeight: "297mm", padding: template.theme.pagePadding }}>
 
-                  {/* Faded watermark — matches print */}
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none" aria-hidden="true">
-                    <span className="text-[80pt] font-black tracking-[6px] text-[#7c3aed] opacity-[0.05] -rotate-[30deg] whitespace-nowrap" style={{ fontFamily: "Georgia, serif" }}>
-                      TELMIDHI
-                    </span>
-                  </div>
-
-                  {/* Document header */}
-                  <div className="relative border-2 border-black p-3 mb-5 min-h-[130px]">
-                    <div className="absolute top-2 right-2 w-[110px] h-[110px]" dangerouslySetInnerHTML={{ __html: SEAL_SVG }} />
-                    <table className="w-full text-[10pt]" style={{ maxWidth: "calc(100% - 130px)" }}>
-                      <tbody>
-                        <tr>
-                          <td className="py-0.5 px-1">Établissement: _______________________</td>
-                          <td className="py-0.5 px-1 text-right">Année: {new Date().getFullYear()}–{new Date().getFullYear() + 1}</td>
-                        </tr>
-                        <tr>
-                          <td className="py-0.5 px-1">Classe: <strong>{level}</strong></td>
-                          <td className="py-0.5 px-1 text-right">Date: {new Date().toLocaleDateString("fr-TN")}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div className="text-center font-bold border-t border-black mt-2 pt-1.5" style={{ maxWidth: "calc(100% - 130px)" }}>
-                      <div className="text-[14pt]">{CONTENT_TYPES.find((t) => t.id === contentType)?.label} — {subject}</div>
-                      <div className="text-[12pt] font-normal">{title}</div>
+                  {/* Faded watermark — matches print (templates without one skip it) */}
+                  {template.watermark && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none" aria-hidden="true">
+                      <span className="paper-watermark text-[80pt] font-black tracking-[6px] opacity-[0.06] -rotate-[30deg] whitespace-nowrap">
+                        {template.watermark}
+                      </span>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Header + sheet styling of the active template */}
+                  <style dangerouslySetInnerHTML={{ __html: previewCSS }} />
+                  <div dangerouslySetInnerHTML={{ __html: previewHeader }} />
 
                   {/* Document body */}
-                  <div className="relative z-[1]" dir={rtl ? "rtl" : "ltr"}>
+                  <div className="paper-body relative z-[1]" dir={rtl ? "rtl" : "ltr"}>
                     {isStructured ? (
                       <>
-                        <RefinableBlock
-                          heading="Résumé du cours"
-                          value={structured!.summary}
-                          onAIRefine={() => openRefine({ kind: "summary" })}
-                          refining={refining && refiningKey === "summary"}
-                          katexReady={katexReady}
-                        />
+                        {!!structured!.document?.trim() && (
+                          <>
+                            <RefinableBlock
+                              heading={docStrings(headerLang(language)).supportDocument}
+                              value={structured!.document || ""}
+                              onAIRefine={() => openRefine({ kind: "document" })}
+                              refining={refining && refiningKey === "document"}
+                              katexReady={katexReady}
+                            />
+                            <hr className="my-4 border-gray-400" />
+                          </>
+                        )}
 
-                        <hr className="my-4 border-gray-400" />
+                        {/* A devoir goes straight to the exercises — no course summary */}
+                        {!!structured!.summary?.trim() && (
+                          <>
+                            <RefinableBlock
+                              heading={docStrings(headerLang(language)).summary}
+                              value={structured!.summary || ""}
+                              onAIRefine={() => openRefine({ kind: "summary" })}
+                              refining={refining && refiningKey === "summary"}
+                              katexReady={katexReady}
+                            />
 
-                        <h2 className="paper-section-title">Énoncés</h2>
+                            <hr className="my-4 border-gray-400" />
+
+                            <h2 className="paper-section-title">{docStrings(headerLang(language)).statements}</h2>
+                          </>
+                        )}
+
                         {structured!.exercises.map((ex, i) => (
                           <RefinableBlock
                             key={`ex-${i}`}
-                            heading={`Exercice ${i + 1}`}
+                            heading={exerciseHeading(i, headerLang(language))}
                             badge={ex.points || undefined}
                             value={ex.statement}
+                            render={exerciseToHtml}
                             onAIRefine={() => openRefine({ kind: "exercise", index: i })}
                             onDelete={() => setStructured((p) => p && ({ ...p, exercises: p.exercises.filter((_, idx) => idx !== i) }))}
                             refining={refining && refiningKey === `ex-${i}`}
@@ -1037,12 +1348,13 @@ export default function GenerateContentPage() {
                               <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-white px-2 text-[10pt] text-[hsl(var(--primary))]/60 italic">— saut de page —</span>
                             </div>
 
-                            <h2 className="paper-section-title">Corrections</h2>
+                            <h2 className="paper-section-title">{docStrings(headerLang(language)).corrections}</h2>
                             {structured!.exercises.map((ex, i) => (
                               <RefinableBlock
                                 key={`co-${i}`}
-                                heading={`Correction — Exercice ${i + 1}`}
+                                heading={`${docStrings(headerLang(language)).correction} — ${exerciseHeading(i, headerLang(language))}`}
                                 value={ex.correction}
+                                render={exerciseToHtml}
                                 onAIRefine={() => openRefine({ kind: "correction", index: i })}
                                 refining={refining && refiningKey === `co-${i}`}
                                 katexReady={katexReady}
@@ -1084,6 +1396,7 @@ export default function GenerateContentPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wand2 className="h-4 w-4 text-[hsl(var(--primary))]" />
+              {refineTarget?.kind === "document" && "Améliorer le document support"}
               {refineTarget?.kind === "summary" && "Améliorer le résumé"}
               {refineTarget?.kind === "exercise" && `Modifier l'exercice ${(refineTarget.index ?? 0) + 1}`}
               {refineTarget?.kind === "correction" && `Modifier la correction ${(refineTarget.index ?? 0) + 1}`}
@@ -1125,30 +1438,37 @@ export default function GenerateContentPage() {
 
 // ─── Helper: render structured doc directly to print-ready HTML ───────────────
 
-function renderStructuredToHTML(doc: StructuredDoc, withCorrection = true): string {
-  const summary = `<h2>Résumé du cours</h2>${mdToHtml(doc.summary)}`;
+function renderStructuredToHTML(doc: StructuredDoc, withCorrection = true, lang = "francais"): string {
+  const lg = headerLang(lang);
+  const S = docStrings(lg);
+  const support = doc.document?.trim() ? `<h2>${S.supportDocument}</h2>${mdToHtml(doc.document.trim())}<hr>` : "";
+  // A devoir has no course summary, and then no "Énoncés" divider either:
+  // the exercises follow the header directly, as on a real exam paper.
+  const summary = doc.summary?.trim()
+    ? `<h2>${S.summary}</h2>${mdToHtml(doc.summary)}<hr><h2>${S.statements}</h2>`
+    : "";
+  // Blocks carry `doc-*` classes so each template styles them its own way.
   const statements = doc.exercises.map((ex, i) =>
-    `<div style="margin:14px 0;page-break-inside:avoid">
-       <h3>Exercice ${i + 1}${ex.points ? ` <span style="font-weight:normal;color:#666">— ${ex.points}</span>` : ""}</h3>
-       ${mdToHtml(ex.statement)}
+    `<div class="doc-exercise">
+       <h3>${exerciseHeading(i, lg)}${ex.points ? ` <span class="doc-points">— ${ex.points}</span>` : ""}</h3>
+       ${exerciseToHtml(ex.statement)}
      </div>`
   ).join("");
 
   const correctionsBlock = withCorrection
-    ? `<hr style="page-break-before:always">
-    <h2>Corrections</h2>
+    ? `<hr class="doc-break">
+    <h2>${S.corrections}</h2>
     ${doc.exercises.map((ex, i) =>
-      `<div style="margin:14px 0;page-break-inside:avoid">
-       <h3>Correction — Exercice ${i + 1}</h3>
-       ${mdToHtml(ex.correction)}
+      `<div class="doc-correction">
+       <h3>${S.correction} — ${exerciseHeading(i, lg)}</h3>
+       ${exerciseToHtml(ex.correction)}
      </div>`
     ).join("")}`
     : "";
 
   return `
+    ${support}
     ${summary}
-    <hr>
-    <h2>Énoncés</h2>
     ${statements}
     ${correctionsBlock}
   `;

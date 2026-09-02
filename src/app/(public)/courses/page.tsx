@@ -121,7 +121,7 @@ export default function CoursesPage() {
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <div className="flex gap-2 flex-1">
             <Select value={classe} onValueChange={setClasse}>
-              <SelectTrigger className="w-52">
+              <SelectTrigger className="w-full sm:w-52">
                 <SelectValue placeholder="Classe" />
               </SelectTrigger>
               <SelectContent>
@@ -138,7 +138,7 @@ export default function CoursesPage() {
             </Select>
 
             <Select value={trimestre} onValueChange={setTrimestre}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Trimestre" />
               </SelectTrigger>
               <SelectContent>
@@ -150,12 +150,12 @@ export default function CoursesPage() {
             </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-[hsl(var(--muted-foreground))]">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm text-[hsl(var(--muted-foreground))] whitespace-nowrap">
               {pagination.total} courses
             </span>
             <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

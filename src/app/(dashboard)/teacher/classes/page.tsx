@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   GraduationCap, Clock, CalendarDays, Wallet, Users, Loader2, Video, BookX,
-  Check, X, UserPlus,
+  Check, X, UserPlus, ClipboardCheck, Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,14 +32,18 @@ interface ClassRow {
 interface Student {
   _id: string;
   status: string;
-  student?: { name: string; email: string; avatar?: string };
+  isFree?: boolean;
+  student?: { _id?: string; name: string; email: string; avatar?: string };
 }
+
+interface FreeSeances { allowance: number; used: number; remaining: number }
 
 export default function TeacherClassesPage() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [rosterClass, setRosterClass] = useState<ClassRow | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [freeBalances, setFreeBalances] = useState<Record<string, FreeSeances>>({});
   const [rosterLoading, setRosterLoading] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
 
@@ -63,7 +67,10 @@ export default function TeacherClassesPage() {
     try {
       const res = await fetch(`/api/classes/${cls._id}`);
       const json = await res.json();
-      if (json.success) setStudents(json.data.enrollments || []);
+      if (json.success) {
+        setStudents(json.data.enrollments || []);
+        setFreeBalances(json.data.freeSeances || {});
+      }
     } catch {
       toast.error("Failed to load students");
     } finally {
@@ -147,13 +154,17 @@ export default function TeacherClassesPage() {
                   <span className="flex items-center gap-1"><Wallet className="h-3.5 w-3.5" /> {c.price} DT</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <Button variant="outline" size="sm" className="relative" onClick={() => openRoster(c)}>
                   <Users className="h-4 w-4" /> {c.confirmedCount} student{c.confirmedCount === 1 ? "" : "s"}
                   {c.pendingCount > 0 && (
                     <Badge variant="destructive" className="ml-1">{c.pendingCount} pending</Badge>
                   )}
                 </Button>
+                {/* Présences for this séance — the register of confirmed students. */}
+                <Link href={`/teacher/classes/${c._id}/attendance`}>
+                  <Button variant="outline" size="sm"><ClipboardCheck className="h-4 w-4" /> Présences</Button>
+                </Link>
                 {c.status !== "cancelled" && (
                   <Link href={`/classes/${c._id}/room`}>
                     <Button variant="gradient" size="sm"><Video className="h-4 w-4" /> Start</Button>
@@ -207,11 +218,24 @@ export default function TeacherClassesPage() {
                   <p className="text-sm text-[hsl(var(--muted-foreground))] py-2">No enrolled students yet.</p>
                 ) : (
                   confirmed.map((s) => (
-                    <div key={s._id} className="flex items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border))]">
-                      <Avatar className="h-9 w-9"><AvatarImage src={s.student?.avatar} /><AvatarFallback className="text-xs">{getInitials(s.student?.name || "?")}</AvatarFallback></Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{s.student?.name}</p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))]">{s.student?.email}</p>
+                    <div key={s._id} className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border))]">
+                      <Avatar className="h-9 w-9 shrink-0"><AvatarImage src={s.student?.avatar} /><AvatarFallback className="text-xs">{getInitials(s.student?.name || "?")}</AvatarFallback></Avatar>
+                      <div className="flex-1 min-w-[8rem]">
+                        <p className="text-sm font-medium truncate">{s.student?.name}</p>
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">{s.student?.email}</p>
+                      </div>
+                      {/* How this student got in, and what is left of their grant. */}
+                      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                        {s.isFree ? (
+                          <Badge variant="success" className="gap-1"><Gift className="h-3 w-3" /> Séance gratuite</Badge>
+                        ) : (
+                          <Badge variant="secondary">Payée</Badge>
+                        )}
+                        {freeBalances[String(s.student?._id ?? "")] && (
+                          <span className="text-[10px] text-[hsl(var(--muted-foreground))] whitespace-nowrap">
+                            {freeBalances[String(s.student?._id)].remaining} gratuite(s) restante(s)
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))

@@ -23,7 +23,7 @@ export function PopularCourses() {
   if (!loading && courses.length === 0) return null;
 
   return (
-    <section className="py-24 bg-[hsl(var(--muted))]/30">
+    <section className="py-14 sm:py-24 bg-[hsl(var(--muted))]/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-12">
           <div>
@@ -31,7 +31,7 @@ export function PopularCourses() {
               <TrendingUp className="h-4 w-4" />
               {t.badge}
             </div>
-            <h2 className="text-4xl sm:text-5xl font-bold">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold">
               {t.titleBefore} <span className="gradient-text">{t.titleHighlight}</span>
             </h2>
             <p className="text-[hsl(var(--muted-foreground))] mt-2 max-w-xl">

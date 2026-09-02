@@ -97,7 +97,7 @@ export default function TeacherLessonsPage() {
 
       <div className="flex items-center gap-3 flex-wrap">
         <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-          <SelectTrigger className="w-56">
+          <SelectTrigger className="w-full sm:w-56">
             <SelectValue placeholder="Filtrer par matière" />
           </SelectTrigger>
           <SelectContent>

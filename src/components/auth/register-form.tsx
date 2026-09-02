@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Lock, Mail, User, GraduationCap, BookOpen, MapPin, Layers, Users, KeyRound, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, User, GraduationCap, BookOpen, MapPin, Layers, Users, KeyRound, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,9 +36,9 @@ const ROLE_ICON: Record<RegisterRole, React.ElementType> = {
   parent: Users,
 };
 
-// One sign-up form, locked to a single role. Only the student form is linked
-// publicly; teachers and parents reach their own URL (/register/teacher,
-// /register/parent), so nobody picks a role from a selector any more.
+// One sign-up form, locked to a single role. The role is chosen a step earlier
+// on /register, which routes to /register/student|teacher|parent — so this form
+// never has to ask, it only renders the fields that role needs.
 export function RegisterForm({ role }: { role: RegisterRole }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -148,13 +148,20 @@ export function RegisterForm({ role }: { role: RegisterRole }) {
 
   return (
     <div className="w-full max-w-md">
-      <div className="glass rounded-2xl border border-[hsl(var(--border))] p-8 shadow-2xl">
+      <div className="glass rounded-2xl border border-[hsl(var(--border))] p-6 sm:p-8 shadow-2xl">
         <div className="text-center mb-8">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl gradient-bg shadow">
             <RoleIcon className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-2xl font-bold mb-1">{t[`${role}Title`]}</h1>
           <p className="text-[hsl(var(--muted-foreground))] text-sm">{t[`${role}Subtitle`]}</p>
+          <Link
+            href="/register"
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />
+            {t.backToRoles}
+          </Link>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -321,7 +328,7 @@ export function RegisterForm({ role }: { role: RegisterRole }) {
             </p>
           )}
 
-          <Button type="submit" className="w-full" variant="gradient" loading={loading}>
+          <Button type="submit" size="lg" className="w-full" loading={loading}>
             {loading ? t.submitting : t.submit}
           </Button>
 

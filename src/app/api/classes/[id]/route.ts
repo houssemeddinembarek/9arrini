@@ -4,6 +4,16 @@ import { connectDB } from "@/lib/mongodb";
 import ClassSession from "@/models/ClassSession";
 import ClassEnrollment from "@/models/ClassEnrollment";
 import { isAdmin } from "@/lib/roles";
+import { getFreeSeanceStatuses } from "@/lib/free-seances";
+
+// Free-séance balance for every student on a roster, keyed by student id, so
+// the teacher/admin views can show who is on their free grant.
+async function rosterFreeSeances(enrollments: { student?: unknown }[]) {
+  const ids = enrollments
+    .map((e) => String((e.student as { _id?: unknown })?._id ?? e.student ?? ""))
+    .filter(Boolean);
+  return getFreeSeanceStatuses(ids);
+}
 
 // Class details. Admin and the assigned teacher also get the roster
 // (teacher only sees confirmed students); a student gets their own status.
@@ -28,7 +38,10 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
         .populate("student", "name email avatar")
         .sort({ createdAt: -1 })
         .lean();
-      return NextResponse.json({ success: true, data: { class: cls, enrollments } });
+      return NextResponse.json({
+        success: true,
+        data: { class: cls, enrollments, freeSeances: await rosterFreeSeances(enrollments) },
+      });
     }
 
     if (isOwnerTeacher) {
@@ -40,7 +53,10 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
         .populate("student", "name email avatar")
         .sort({ status: 1, createdAt: -1 })
         .lean();
-      return NextResponse.json({ success: true, data: { class: cls, enrollments } });
+      return NextResponse.json({
+        success: true,
+        data: { class: cls, enrollments, freeSeances: await rosterFreeSeances(enrollments) },
+      });
     }
 
     // Student view: just their own enrollment status.

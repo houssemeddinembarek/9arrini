@@ -2,25 +2,25 @@
 
 import { useI18n } from "@/lib/i18n/context";
 
-// Full-width, infinitely scrolling band of subjects/levels — adds motion and
-// signals "there's something here for me" to collège/lycée students.
+// A single, slow marquee of subjects and levels. Deliberately quiet: hairline
+// pills, muted text, generous edge fades — it reads as a caption strip under
+// the hero, not as a second headline.
 export function SubjectsBand() {
   const { dict } = useI18n();
   const ITEMS = dict.subjectsBand.items;
 
   return (
-    <section className="relative py-6 border-y border-[hsl(var(--border))] bg-[hsl(var(--card))]/50 overflow-hidden">
-      {/* Edge fades */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-10 bg-gradient-to-r from-[hsl(var(--background))] to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10 bg-gradient-to-l from-[hsl(var(--background))] to-transparent" />
+    <section className="relative overflow-hidden border-y border-border bg-surface py-5">
+      <div className="pointer-events-none absolute inset-y-0 start-0 z-10 w-20 bg-gradient-to-r from-surface to-transparent rtl:bg-gradient-to-l sm:w-32" />
+      <div className="pointer-events-none absolute inset-y-0 end-0 z-10 w-20 bg-gradient-to-l from-surface to-transparent rtl:bg-gradient-to-r sm:w-32" />
 
-      <div className="flex w-max animate-marquee">
+      <div className="flex w-max animate-marquee" dir="ltr">
         {[0, 1].map((copy) => (
-          <ul key={copy} className="flex items-center gap-3 pr-3" aria-hidden={copy === 1}>
+          <ul key={copy} className="flex items-center gap-2.5 pe-2.5" aria-hidden={copy === 1}>
             {ITEMS.map((item) => (
               <li
                 key={`${copy}-${item}`}
-                className="whitespace-nowrap rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-2 text-sm font-medium shadow-sm"
+                className="whitespace-nowrap rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-medium text-muted-foreground"
               >
                 {item}
               </li>

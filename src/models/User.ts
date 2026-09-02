@@ -32,6 +32,10 @@ export interface IUserDocument extends Document {
     year?: string;
     section?: string;
     governorate?: string;
+    // Free class séances granted at sign-up, from the platform setting in
+    // force that day. Stamped per student so later changes to the setting
+    // don't rewrite what existing students were promised.
+    freeSeancesAllowance?: number;
   };
   // Teacher tutoring/teaching profile (shown on the tutor card).
   teachingProfile?: {
@@ -96,6 +100,7 @@ const UserSchema = new Schema<IUserDocument>(
       year: { type: String, default: "" },
       section: { type: String, default: "" },
       governorate: { type: String, default: "" },
+      freeSeancesAllowance: { type: Number, min: 0 },
     },
     teachingProfile: {
       institution: { type: String, default: "" },

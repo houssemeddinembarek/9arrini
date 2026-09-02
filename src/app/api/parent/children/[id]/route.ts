@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { isMeetingEnded } from "@/lib/utils";
+import { getFreeSeanceStatus } from "@/lib/free-seances";
 import User from "@/models/User";
 import Enrollment from "@/models/Enrollment";
 import QuizAttempt from "@/models/QuizAttempt";
@@ -13,6 +14,7 @@ import Attendance from "@/models/Attendance";
 import "@/models/Course";
 import "@/models/Quiz";
 import "@/models/Content";
+import "@/models/ClassSession";
 
 // Confirm the caller is a parent linked to this child. Returns the child doc or null.
 async function ownedChild(parentId: string, childId: string) {
@@ -43,7 +45,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         .select("title date startTime endTime recordingUrl")
         .sort({ date: 1 })
         .lean(),
-      Attendance.find({ student: id }).populate("meeting", "title date").sort({ createdAt: -1 }).lean(),
+      // A mark belongs either to a meeting or to a class séance.
+      Attendance.find({ student: id })
+        .populate("meeting", "title date")
+        .populate("classSession", "title date")
+        .sort({ createdAt: -1 })
+        .lean(),
     ]);
 
     // Courses
@@ -85,14 +92,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .filter((m) => !!m.recordingUrl)
       .map((m) => ({ _id: m._id, title: m.title, date: m.date }));
 
-    // Attendance records (meeting-scoped marks the teacher recorded).
+    // Attendance records — marks the teacher recorded on a meeting or a séance.
     const attendanceList = attendance
-      .filter((a) => a.meeting)
-      .map((a) => ({
-        title: (a.meeting as { title?: string }).title || "Réunion",
-        date: (a.meeting as { date?: Date }).date,
-        status: a.status as string,
-      }));
+      .filter((a) => a.meeting || a.classSession)
+      .map((a) => {
+        const seance = (a.meeting || a.classSession) as { title?: string; date?: Date };
+        return {
+          title: seance.title || (a.meeting ? "Réunion" : "Séance"),
+          date: seance.date,
+          status: a.status as string,
+        };
+      });
     const presentCount = attendance.filter((a) => a.status === "present" || a.status === "late").length;
 
     // Summary tiles
@@ -111,6 +121,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         pending: assignmentList.filter((a) => a.status === "à faire" || a.status === "pending").length,
       },
       courses: courses.length,
+      // Free class séances the school granted the child, and what is left.
+      freeSeances: await getFreeSeanceStatus(id),
     };
 
     return NextResponse.json({

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { title, subject, level, contentType, source, contentBody, pdfUrl, cloudinaryId } = body;
+    const { title, subject, level, contentType, source, contentBody, pdfUrl, cloudinaryId, devoirNumber, trimester, establishment, teacher } = body;
 
     if (!title || !subject || !level || !contentType || !source) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -56,6 +56,10 @@ export async function POST(request: NextRequest) {
       subject,
       level,
       contentType,
+      devoirNumber: typeof devoirNumber === "number" ? devoirNumber : undefined,
+      trimester: typeof trimester === "number" ? trimester : undefined,
+      establishment: typeof establishment === "string" ? establishment : "",
+      teacherName: typeof teacher === "string" ? teacher : "",
       source,
       body: contentBody || "",
       pdfUrl: pdfUrl || "",

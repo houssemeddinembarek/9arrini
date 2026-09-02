@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { notifyUsers } from "@/lib/notifications";
 import TutoringRequest from "@/models/TutoringRequest";
+import Group from "@/models/Group";
 import { isAdmin } from "@/lib/roles";
 import "@/models/User";
 
@@ -33,13 +34,36 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     reqDoc.respondedAt = new Date();
     await reqDoc.save();
 
+    // Accepting a request for a specific group puts the student in it, so the
+    // group roster and its meetings pick them up straight away. Removing them
+    // on a refusal keeps a re-reviewed request from leaving a stale member.
+    let groupName = "";
+    if (reqDoc.group) {
+      const group =
+        action === "accept"
+          ? await Group.findByIdAndUpdate(
+              reqDoc.group,
+              { $addToSet: { students: reqDoc.student } },
+              { new: true }
+            ).select("name").lean<{ name: string } | null>()
+          : await Group.findByIdAndUpdate(
+              reqDoc.group,
+              { $pull: { students: reqDoc.student } }
+            ).select("name").lean<{ name: string } | null>();
+      groupName = group?.name || "";
+    }
+
     const teacherName = (reqDoc.teacher as { name?: string })?.name || "Le professeur";
     await notifyUsers([String(reqDoc.student)], {
       title: action === "accept" ? "Réservation acceptée 🎉" : "Réservation refusée",
       message:
         action === "accept"
-          ? `${teacherName} a accepté ta demande. Tu peux voir et rejoindre ses réunions.`
-          : `${teacherName} n'a pas pu accepter ta demande pour le moment.`,
+          ? groupName
+            ? `${teacherName} t'a accepté dans le groupe "${groupName}". Tu peux voir et rejoindre ses réunions.`
+            : `${teacherName} a accepté ta demande. Tu peux voir et rejoindre ses réunions.`
+          : groupName
+            ? `${teacherName} n'a pas pu t'accepter dans le groupe "${groupName}" pour le moment.`
+            : `${teacherName} n'a pas pu accepter ta demande pour le moment.`,
       type: action === "accept" ? "success" : "warning",
       link: "/dashboard/tutoring",
     });

@@ -72,7 +72,7 @@ export default function MyMeetingsPage() {
                 {m.description && (
                   <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1 line-clamp-1">{m.description}</p>
                 )}
-                <div className="flex items-center gap-4 mt-2 text-xs text-[hsl(var(--muted-foreground))]">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-[hsl(var(--muted-foreground))]">
                   <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {formatDate(m.date)}</span>
                   <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {m.startTime}{m.endTime ? `–${m.endTime}` : ""}</span>
                   {m.teacher?.name && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {m.teacher.name}</span>}
@@ -120,7 +120,7 @@ export default function MyMeetingsPage() {
                   <h3 className="font-semibold">{m.title}</h3>
                   {m.group?.name && <Badge variant="purple">{m.group.name}</Badge>}
                 </div>
-                <div className="flex items-center gap-4 mt-2 text-xs text-[hsl(var(--muted-foreground))]">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-[hsl(var(--muted-foreground))]">
                   <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {formatDate(m.date)}</span>
                   {m.teacher?.name && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {m.teacher.name}</span>}
                 </div>

@@ -35,25 +35,25 @@ export default function SettingsPage() {
 
           <Tabs defaultValue="security" orientation="vertical">
             <div className="flex flex-col sm:flex-row gap-6">
-              <TabsList className="flex flex-row sm:flex-col h-auto sm:w-48 p-1 justify-start">
-                <TabsTrigger value="security" className="justify-start gap-2 w-full">
+              <TabsList className="flex flex-row sm:flex-col h-auto w-full sm:w-48 shrink-0 p-1 justify-start">
+                <TabsTrigger value="security" className="justify-start gap-2 w-auto sm:w-full">
                   <Lock className="h-4 w-4" /> Security
                 </TabsTrigger>
-                <TabsTrigger value="notifications" className="justify-start gap-2 w-full">
+                <TabsTrigger value="notifications" className="justify-start gap-2 w-auto sm:w-full">
                   <Bell className="h-4 w-4" /> Notifications
                 </TabsTrigger>
-                <TabsTrigger value="appearance" className="justify-start gap-2 w-full">
+                <TabsTrigger value="appearance" className="justify-start gap-2 w-auto sm:w-full">
                   <Palette className="h-4 w-4" /> Appearance
                 </TabsTrigger>
-                <TabsTrigger value="privacy" className="justify-start gap-2 w-full">
+                <TabsTrigger value="privacy" className="justify-start gap-2 w-auto sm:w-full">
                   <Shield className="h-4 w-4" /> Privacy
                 </TabsTrigger>
-                <TabsTrigger value="danger" className="justify-start gap-2 w-full text-red-500">
+                <TabsTrigger value="danger" className="justify-start gap-2 w-auto sm:w-full text-red-500">
                   <Trash2 className="h-4 w-4" /> Danger Zone
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <TabsContent value="security">
                   <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 space-y-5">
                     <h2 className="font-semibold text-lg">Change Password</h2>
@@ -100,7 +100,7 @@ export default function SettingsPage() {
                         { key: "email_messages", label: "Messages", desc: "When someone sends you a message" },
                         { key: "email_promos", label: "Promotions", desc: "Sales, new courses, offers" },
                       ].map(({ key, label, desc }) => (
-                        <div key={key} className="flex items-center justify-between py-2">
+                        <div key={key} className="flex items-center justify-between gap-4 py-2">
                           <div>
                             <p className="text-sm font-medium">{label}</p>
                             <p className="text-xs text-[hsl(var(--muted-foreground))]">{desc}</p>
@@ -118,7 +118,7 @@ export default function SettingsPage() {
                         { key: "push_messages", label: "Direct messages", desc: "From teachers and peers" },
                         { key: "push_achievements", label: "Achievements", desc: "Badges, level-ups, streaks" },
                       ].map(({ key, label, desc }) => (
-                        <div key={key} className="flex items-center justify-between py-2">
+                        <div key={key} className="flex items-center justify-between gap-4 py-2">
                           <div>
                             <p className="text-sm font-medium">{label}</p>
                             <p className="text-xs text-[hsl(var(--muted-foreground))]">{desc}</p>
@@ -137,7 +137,7 @@ export default function SettingsPage() {
                   <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 space-y-6">
                     <h2 className="font-semibold text-lg">Appearance</h2>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="font-medium">Color Theme</p>
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">
@@ -147,7 +147,7 @@ export default function SettingsPage() {
                       <ThemeToggle />
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="font-medium">Language</p>
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">Platform language</p>
@@ -165,7 +165,7 @@ export default function SettingsPage() {
                       { label: "Show enrolled courses", desc: "Others can see what you're learning" },
                       { label: "Show certificates", desc: "Display your achievements" },
                     ].map(({ label, desc }) => (
-                      <div key={label} className="flex items-center justify-between py-2">
+                      <div key={label} className="flex items-center justify-between gap-4 py-2">
                         <div>
                           <p className="text-sm font-medium">{label}</p>
                           <p className="text-xs text-[hsl(var(--muted-foreground))]">{desc}</p>

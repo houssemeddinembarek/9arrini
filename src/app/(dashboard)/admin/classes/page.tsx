@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   GraduationCap, Plus, Clock, CalendarDays, Wallet, Users, Trash2,
-  CheckCircle2, XCircle, Loader2, UserCheck, BadgeCheck,
+  CheckCircle2, XCircle, Loader2, UserCheck, BadgeCheck, ClipboardCheck, Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,8 +50,11 @@ interface ClassRow {
 interface Enrollment {
   _id: string;
   status: "pending" | "confirmed" | "rejected" | "cancelled";
+  isFree?: boolean;
   student?: { _id: string; name: string; email: string; avatar?: string };
 }
+
+interface FreeSeances { allowance: number; used: number; remaining: number }
 
 const EMPTY_FORM = {
   title: "", subject: "", level: "", description: "",
@@ -68,6 +72,7 @@ export default function AdminClassesPage() {
   // Roster dialog
   const [rosterClass, setRosterClass] = useState<ClassRow | null>(null);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [freeBalances, setFreeBalances] = useState<Record<string, FreeSeances>>({});
   const [rosterLoading, setRosterLoading] = useState(false);
 
   const loadClasses = useCallback(async () => {
@@ -151,7 +156,10 @@ export default function AdminClassesPage() {
     try {
       const res = await fetch(`/api/classes/${cls._id}`);
       const json = await res.json();
-      if (json.success) setEnrollments(json.data.enrollments || []);
+      if (json.success) {
+        setEnrollments(json.data.enrollments || []);
+        setFreeBalances(json.data.freeSeances || {});
+      }
     } catch {
       toast.error("Failed to load roster");
     } finally {
@@ -201,7 +209,7 @@ export default function AdminClassesPage() {
                 <Input placeholder="e.g. Mathématiques 7ème" value={form.title} onChange={(e) => set("title", e.target.value)} />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Subject *</Label>
                   <Select value={form.subject} onValueChange={(v) => set("subject", v)}>
@@ -252,7 +260,7 @@ export default function AdminClassesPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Date *</Label>
                   <Input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
@@ -317,12 +325,16 @@ export default function AdminClassesPage() {
                   <span className="flex items-center gap-1"><Wallet className="h-3.5 w-3.5" /> {c.price} DT</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 {c.pendingCount > 0 && <Badge variant="warning">{c.pendingCount} pending</Badge>}
                 <Badge variant="success" className="gap-1"><UserCheck className="h-3 w-3" /> {c.confirmedCount}</Badge>
                 <Button variant="outline" size="sm" onClick={() => openRoster(c)}>
                   <Users className="h-4 w-4" /> Manage
                 </Button>
+                {/* Read-only register — the séance's teacher owns the marking. */}
+                <Link href={`/teacher/classes/${c._id}/attendance`}>
+                  <Button variant="outline" size="sm"><ClipboardCheck className="h-4 w-4" /> Présences</Button>
+                </Link>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteClass(c._id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -343,13 +355,21 @@ export default function AdminClassesPage() {
           ) : (
             <div className="space-y-2">
               {enrollments.map((e) => (
-                <div key={e._id} className="flex items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border))]">
-                  <Avatar className="h-9 w-9"><AvatarImage src={e.student?.avatar} /><AvatarFallback className="text-xs">{getInitials(e.student?.name || "?")}</AvatarFallback></Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{e.student?.name}</p>
-                    <p className="text-xs text-[hsl(var(--muted-foreground))]">{e.student?.email}</p>
+                <div key={e._id} className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border))]">
+                  <Avatar className="h-9 w-9 shrink-0"><AvatarImage src={e.student?.avatar} /><AvatarFallback className="text-xs">{getInitials(e.student?.name || "?")}</AvatarFallback></Avatar>
+                  <div className="flex-1 min-w-[8rem]">
+                    <p className="text-sm font-medium truncate">{e.student?.name}</p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] truncate">{e.student?.email}</p>
+                    {/* Where this student stands on their free grant. */}
+                    {freeBalances[String(e.student?._id ?? "")] && (
+                      <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">
+                        Séances gratuites : {freeBalances[String(e.student?._id)].used}/{freeBalances[String(e.student?._id)].allowance} utilisées
+                      </p>
+                    )}
                   </div>
-                  {e.status === "pending" ? (
+                  {e.isFree ? (
+                    <Badge variant="success" className="gap-1 ml-auto shrink-0"><Gift className="h-3 w-3" /> Séance gratuite</Badge>
+                  ) : e.status === "pending" ? (
                     <div className="flex items-center gap-1.5">
                       <Button size="sm" variant="gradient" className="h-7 text-xs" onClick={() => review(e._id, "confirm")}>
                         <CheckCircle2 className="h-3.5 w-3.5" /> Payment received

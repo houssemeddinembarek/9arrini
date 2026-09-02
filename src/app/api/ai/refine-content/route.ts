@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 
 type RefineAction =
+  | "refine_document"
   | "refine_summary"
   | "refine_exercise"
   | "refine_correction"
@@ -15,6 +16,7 @@ interface RefinePayload {
   subject?: string;
   level?: string;
   title?: string;
+  document?: string;
   summary?: string;
   statement?: string;
   correction?: string;
@@ -40,6 +42,20 @@ Règles:
 `;
 
   switch (p.action) {
+    case "refine_document":
+      return {
+        jsonShape: "text",
+        prompt: `${header}
+**Tâche:** Mettre à jour le document support (texte, extrait, données ou description de carte) remis à l'élève, selon les instructions.
+Renvoie UNIQUEMENT le nouveau document en markdown, sans préambule et sans les questions.
+
+--- DOCUMENT ACTUEL ---
+${p.document || "(vide — créer un document support adapté au chapitre)"}
+--- FIN ---
+
+Nouveau document:`,
+      };
+
     case "refine_summary":
       return {
         jsonShape: "text",

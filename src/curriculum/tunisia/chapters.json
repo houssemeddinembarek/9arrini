@@ -1,0 +1,422 @@
+{
+  "generatedAt": "2026-08-23T18:15:16.151Z",
+  "note": "Chapter outlines extracted from the manuels scolaires. Titles only — the structure of a year's syllabus, used to keep AI generation inside the chapters a class actually studies. Books with an empty `chapters` array carry a `reason`.",
+  "counts": {
+    "books": 23,
+    "withChapters": 1
+  },
+  "books": [
+    {
+      "cycle": "primaire",
+      "level": "5eme",
+      "subject": "mathematiques",
+      "file": "primaire/5eme/mathematiques/manuel/manuel-mathematiques-5eme-primaire.pdf",
+      "pageCount": 168,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 1753,
+        "weird": 4044
+      }
+    },
+    {
+      "cycle": "primaire",
+      "level": "4eme",
+      "subject": "sciences-naturelles",
+      "file": "primaire/4eme/sciences-naturelles/manuel/manuel-eveil-scientifique-4eme-primaire-ed2.pdf",
+      "pageCount": 262,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 1024,
+        "weird": 3196
+      }
+    },
+    {
+      "cycle": "primaire",
+      "level": "4eme",
+      "subject": "sciences-naturelles",
+      "file": "primaire/4eme/sciences-naturelles/manuel/manuel-eveil-scientifique-4eme-primaire.pdf",
+      "pageCount": 152,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 930,
+        "weird": 2987
+      }
+    },
+    {
+      "cycle": "primaire",
+      "level": "4eme",
+      "subject": "mathematiques",
+      "file": "primaire/4eme/mathematiques/manuel/manuel-mathematiques-4eme-primaire.pdf",
+      "pageCount": 168,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 1045,
+        "weird": 4184
+      }
+    },
+    {
+      "cycle": "primaire",
+      "level": "3eme",
+      "subject": "mathematiques",
+      "file": "primaire/3eme/mathematiques/manuel/manuel-mathematiques-3eme-primaire.pdf",
+      "pageCount": 176,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 837,
+        "weird": 3712
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "bac",
+      "subject": "mathematiques",
+      "file": "lycee/bac/mathematiques/manuel/manuel-mathematiques-bac-1.pdf",
+      "pageCount": 182,
+      "quality": "insufficient",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "no usable text layer — scanned, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 0,
+        "weird": 4
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "bac",
+      "subject": "mathematiques",
+      "file": "lycee/bac/mathematiques/manuel/manuel-mathematiques-bac-2.pdf",
+      "pageCount": 119,
+      "quality": "insufficient",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "no usable text layer — scanned, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 0,
+        "weird": 4
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "bac",
+      "subject": "mathematiques",
+      "file": "lycee/bac/mathematiques/manuel/manuel-mathematiques-bac-3.pdf",
+      "pageCount": 302,
+      "quality": "mojibake",
+      "tocPage": 302,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 2298,
+        "weird": 3760
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "3eme",
+      "subject": "mathematiques",
+      "file": "lycee/3eme/mathematiques/manuel/manuel-mathematiques-3eme-sciences-techniques.pdf",
+      "pageCount": 335,
+      "quality": "mojibake",
+      "tocPage": 6,
+      "chapters": [
+        {
+          "number": "8",
+          "title": "Dénombrement"
+        }
+      ],
+      "stats": {
+        "arabic": 0,
+        "latin": 2483,
+        "weird": 3373
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "2eme",
+      "subject": "physique-chimie",
+      "file": "lycee/2eme/physique-chimie/manuel/manuel-chimie-2eme-sciences.pdf",
+      "pageCount": 216,
+      "quality": "mojibake",
+      "tocPage": 4,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 6404,
+        "weird": 8506
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "2eme",
+      "subject": "mathematiques",
+      "file": "lycee/2eme/mathematiques/manuel/manuel-mathematiques-2eme-ed2.pdf",
+      "pageCount": 168,
+      "quality": "mojibake",
+      "tocPage": 5,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 2806,
+        "weird": 4213
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "2eme",
+      "subject": "mathematiques",
+      "file": "lycee/2eme/mathematiques/manuel/manuel-mathematiques-2eme.pdf",
+      "pageCount": 200,
+      "quality": "mojibake",
+      "tocPage": 6,
+      "chapters": [
+        {
+          "number": "1",
+          "title": "Suites arithmétiques"
+        },
+        {
+          "number": "2",
+          "title": "Suites géométriques"
+        },
+        {
+          "number": "3",
+          "title": "Généralités sur les fonctions"
+        },
+        {
+          "number": "4",
+          "title": "Fonctions de références"
+        },
+        {
+          "number": "5",
+          "title": "Trigonométrie et mesure des grandeurs"
+        },
+        {
+          "number": "6",
+          "title": "Géométrie analytique"
+        },
+        {
+          "number": "7",
+          "title": "Droites et plans de l’espace"
+        },
+        {
+          "number": "8",
+          "title": "Parallélisme dans l’espace"
+        },
+        {
+          "number": "9",
+          "title": "Orthogonalité dans l’espace"
+        },
+        {
+          "number": "10",
+          "title": "Statistiques"
+        }
+      ],
+      "stats": {
+        "arabic": 0,
+        "latin": 2953,
+        "weird": 4284
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "1ere",
+      "subject": "mathematiques",
+      "file": "lycee/1ere/mathematiques/manuel/manuel-mathematiques-1ere-cahier1.pdf",
+      "pageCount": 130,
+      "quality": "mojibake",
+      "tocPage": 5,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 3161,
+        "weird": 4351
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "1ere",
+      "subject": "mathematiques",
+      "file": "lycee/1ere/mathematiques/manuel/manuel-mathematiques-1ere-cahier2.pdf",
+      "pageCount": 142,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 3674,
+        "weird": 5460
+      }
+    },
+    {
+      "cycle": "lycee",
+      "level": "1ere",
+      "subject": "mathematiques",
+      "file": "lycee/1ere/mathematiques/manuel/manuel-mathematiques-1ere-section-sport.pdf",
+      "pageCount": 118,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 2608,
+        "weird": 3399
+      }
+    },
+    {
+      "cycle": "college",
+      "level": "9eme",
+      "subject": "physique-chimie",
+      "file": "college/9eme/physique-chimie/manuel/manuel-sciences-physiques-9eme-pilote-fr.pdf",
+      "pageCount": 200,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 5652,
+        "weird": 7430
+      }
+    },
+    {
+      "cycle": "college",
+      "level": "9eme",
+      "subject": "physique-chimie",
+      "file": "college/9eme/physique-chimie/manuel/manuel-sciences-physiques-9eme.pdf",
+      "pageCount": 223,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 1484,
+        "weird": 4561
+      }
+    },
+    {
+      "cycle": "college",
+      "level": "9eme",
+      "subject": "mathematiques",
+      "file": "college/9eme/mathematiques/manuel/manuel-mathematiques-9eme.pdf",
+      "pageCount": 221,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 175,
+        "latin": 129,
+        "weird": 3624
+      }
+    },
+    {
+      "cycle": "college",
+      "level": "8eme",
+      "subject": "svt",
+      "file": "college/8eme/svt/manuel/manuel-svt-8eme.pdf",
+      "pageCount": 89,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 90,
+        "latin": 120,
+        "weird": 950
+      }
+    },
+    {
+      "cycle": "college",
+      "level": "8eme",
+      "subject": "mathematiques",
+      "file": "college/8eme/mathematiques/manuel/manuel-mathematiques-8eme.pdf",
+      "pageCount": 299,
+      "quality": "arabic",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "text readable but no chapter pattern matched",
+      "stats": {
+        "arabic": 632,
+        "latin": 483,
+        "weird": 3074
+      }
+    },
+    {
+      "cycle": "college",
+      "level": "7eme",
+      "subject": "technologie",
+      "file": "college/7eme/technologie/manuel/manuel-technologie-7eme-cahier-activites.pdf",
+      "pageCount": 176,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 958,
+        "weird": 4211
+      }
+    },
+    {
+      "cycle": "college",
+      "level": "7eme",
+      "subject": "svt",
+      "file": "college/7eme/svt/manuel/manuel-svt-7eme.pdf",
+      "pageCount": 144,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 1372,
+        "weird": 4006
+      }
+    },
+    {
+      "cycle": "college",
+      "level": "7eme",
+      "subject": "mathematiques",
+      "file": "college/7eme/mathematiques/manuel/manuel-mathematiques-7eme.pdf",
+      "pageCount": 214,
+      "quality": "mojibake",
+      "tocPage": null,
+      "chapters": [],
+      "reason": "font has no ToUnicode map — extracted text is glyph codes, needs OCR",
+      "stats": {
+        "arabic": 0,
+        "latin": 926,
+        "weird": 3164
+      }
+    }
+  ]
+}

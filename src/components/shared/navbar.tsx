@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Menu, X, BookOpen, ChevronDown, Bell, Sparkles, GraduationCap, Users } from "lucide-react";
+import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -83,20 +84,15 @@ export function Navbar() {
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
         scrolled || !isHome
-          ? "bg-[hsl(var(--background))]/95 backdrop-blur-xl border-b border-[hsl(var(--border))] shadow-sm"
-          : "bg-transparent"
+          ? "border-b border-border bg-background/80 backdrop-blur-xl backdrop-saturate-150"
+          : "border-b border-transparent bg-transparent"
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl group shrink-0">
-            <div className="w-8 h-8 rounded-xl gradient-bg flex items-center justify-center shadow-lg group-hover:shadow-purple-500/25 transition-shadow">
-              <BookOpen className="h-4 w-4 text-white" />
-            </div>
-            <span className="gradient-text">Telmidhi</span>
-          </Link>
+          <Logo className="shrink-0" />
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-0.5">
@@ -107,14 +103,14 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                    "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
                     active
-                      ? "bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]"
-                      : "text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))]"
+                      ? "bg-primary-soft text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
                   {dict.nav[link.key]}
-                  {active && <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--primary))] ml-0.5" />}
+                  {active && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
                 </Link>
               );
             })}
@@ -148,7 +144,7 @@ export function Navbar() {
                     <Button variant="ghost" className="flex items-center gap-2 px-2 h-9">
                       <Avatar className="h-7 w-7">
                         <AvatarImage src={user.avatar} alt={user.name} />
-                        <AvatarFallback className="gradient-bg text-white text-xs font-bold">
+                        <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                           {getInitials(user.name)}
                         </AvatarFallback>
                       </Avatar>
@@ -162,7 +158,7 @@ export function Navbar() {
                     <DropdownMenuLabel>
                       <div className="flex flex-col gap-0.5">
                         <p className="text-sm font-medium">{user.name}</p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))]">{user.email}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
                         <Badge variant="purple" className="w-fit text-[10px] mt-1 capitalize">{user.role}</Badge>
                       </div>
                     </DropdownMenuLabel>
@@ -174,7 +170,7 @@ export function Navbar() {
                     )}
                     <DropdownMenuItem onClick={() => router.push("/profile")}>
                       <Avatar className="h-4 w-4 mr-2">
-                        <AvatarFallback className="gradient-bg text-white text-[8px]">{getInitials(user.name)}</AvatarFallback>
+                        <AvatarFallback className="bg-primary/10 text-[8px] text-primary">{getInitials(user.name)}</AvatarFallback>
                       </Avatar>
                       {dict.nav.profile}
                     </DropdownMenuItem>
@@ -188,7 +184,7 @@ export function Navbar() {
             ) : (
               <div className="hidden md:flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={() => router.push("/login")}>{dict.nav.signIn}</Button>
-                <Button size="sm" variant="gradient" onClick={() => router.push("/register")}>{dict.nav.getStarted}</Button>
+                <Button size="sm" onClick={() => router.push("/register")}>{dict.nav.getStarted}</Button>
               </div>
             )}
 
@@ -202,7 +198,7 @@ export function Navbar() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden border-t border-[hsl(var(--border))] bg-[hsl(var(--background))]/95 backdrop-blur-xl">
+        <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-xl">
           <div className="px-4 py-4 space-y-1">
             {NAV_LINKS.map((link) => {
               const active = isActive(pathname, link.href);
@@ -214,8 +210,8 @@ export function Navbar() {
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                     active
-                      ? "bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]"
-                      : "hover:bg-[hsl(var(--accent))] text-[hsl(var(--muted-foreground))]"
+                      ? "bg-primary-soft text-primary"
+                      : "text-muted-foreground hover:bg-accent"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -223,16 +219,16 @@ export function Navbar() {
                 </Link>
               );
             })}
-            <div className="pt-3 border-t border-[hsl(var(--border))] mt-2 space-y-2">
+            <div className="mt-2 space-y-2 border-t border-border pt-3">
               {user ? (
                 <>
                   <div className="flex items-center gap-3 px-3 py-2">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={user.avatar} />
-                      <AvatarFallback className="gradient-bg text-white text-xs">{getInitials(user.name)}</AvatarFallback>
+                      <AvatarFallback className="bg-primary/10 text-xs text-primary">{getInitials(user.name)}</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">{user.name}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{user.name}</p>
                       <Badge variant="purple" className="text-[10px] capitalize">{user.role}</Badge>
                     </div>
                   </div>
@@ -244,7 +240,7 @@ export function Navbar() {
               ) : (
                 <div className="flex gap-2">
                   <Button className="flex-1" variant="outline" onClick={() => router.push("/login")}>{dict.nav.signIn}</Button>
-                  <Button className="flex-1" variant="gradient" onClick={() => router.push("/register")}>{dict.nav.getStarted}</Button>
+                  <Button className="flex-1" onClick={() => router.push("/register")}>{dict.nav.getStarted}</Button>
                 </div>
               )}
             </div>

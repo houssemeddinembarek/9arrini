@@ -54,7 +54,10 @@ export default function LearnPage() {
   const [course, setCourse] = useState<CourseLite | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentId, setCurrentId] = useState<string | null>(null);
+  // Desktop keeps the contents panel docked; phones open it as a slide-over,
+  // which starts closed so the lesson is what you land on.
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileTocOpen, setMobileTocOpen] = useState(false);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -134,8 +137,52 @@ export default function LearnPage() {
       return next;
     });
 
+  // Rendered twice: docked beside the lesson on desktop, inside the mobile drawer.
+  const tableOfContents = (
+    <>
+      <div className="p-4 border-b border-[hsl(var(--border))]">
+        <h2 className="font-semibold text-sm mb-1">Course Content</h2>
+        <div className="flex items-center gap-2">
+          <Progress value={progress} className="flex-1 h-1.5" />
+          <span className="text-xs font-medium text-[hsl(var(--primary))]">{progress}%</span>
+        </div>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-1">
+          {items.map((item) => {
+            const done = completed.has(item.id);
+            return (
+              <button
+                key={item.id}
+                onClick={() => { setCurrentId(item.id); setMobileTocOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all text-sm",
+                  item.id === current.id
+                    ? "bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/30"
+                    : "hover:bg-[hsl(var(--accent))]"
+                )}
+              >
+                <div className={cn(
+                  "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
+                  done ? "bg-green-500/20 text-green-500" :
+                  item.id === current.id ? "gradient-bg text-white" :
+                  "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]"
+                )}>
+                  {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : itemIcon(item.kind, "h-3.5 w-3.5")}
+                </div>
+                <p className={cn("flex-1 text-xs font-medium line-clamp-2", item.id === current.id && "text-[hsl(var(--primary))]")}>
+                  {item.title}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </>
+  );
+
   return (
-    <div className="h-screen flex flex-col bg-[hsl(var(--background))]">
+    <div className="h-[100dvh] flex flex-col bg-[hsl(var(--background))]">
       {/* Topbar */}
       <div className="h-14 border-b border-[hsl(var(--border))] flex items-center px-4 gap-3 shrink-0">
         <Link href={`/courses/${slug}`}>
@@ -153,7 +200,10 @@ export default function LearnPage() {
           </span>
           <Progress value={progress} className="w-24 h-1.5 hidden md:flex" />
           <span className="text-xs font-medium text-[hsl(var(--primary))]">{progress}%</span>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 lg:hidden" onClick={() => setMobileTocOpen(!mobileTocOpen)}>
+            {mobileTocOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 hidden lg:inline-flex" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </Button>
         </div>
@@ -178,9 +228,9 @@ export default function LearnPage() {
                     No video uploaded for this lesson.
                   </div>
                 )}
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
                   <div>
-                    <h1 className="text-2xl font-bold mb-2">{current.title}</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold mb-2">{current.title}</h1>
                     <p className="text-[hsl(var(--muted-foreground))]">
                       Lesson {currentIndex + 1} of {items.length}
                     </p>
@@ -208,8 +258,8 @@ export default function LearnPage() {
                     No document attached.
                   </div>
                 )}
-                <div className="flex items-start justify-between gap-4">
-                  <h1 className="text-2xl font-bold">{current.title}</h1>
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+                  <h1 className="text-xl sm:text-2xl font-bold">{current.title}</h1>
                   <div className="flex items-center gap-2 shrink-0">
                     {current.pdfUrl && (
                       <a href={current.pdfUrl} target="_blank" rel="noopener noreferrer">
@@ -253,50 +303,26 @@ export default function LearnPage() {
           </div>
         </div>
 
-        {/* Sidebar */}
+        {/* Contents panel — docked on desktop, slide-over on phones */}
         {sidebarOpen && (
           <div className="w-80 border-l border-[hsl(var(--border))] flex-col hidden lg:flex">
-            <div className="p-4 border-b border-[hsl(var(--border))]">
-              <h2 className="font-semibold text-sm mb-1">Course Content</h2>
-              <div className="flex items-center gap-2">
-                <Progress value={progress} className="flex-1 h-1.5" />
-                <span className="text-xs font-medium text-[hsl(var(--primary))]">{progress}%</span>
-              </div>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
-                {items.map((item) => {
-                  const done = completed.has(item.id);
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setCurrentId(item.id)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all text-sm",
-                        item.id === current.id
-                          ? "bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/30"
-                          : "hover:bg-[hsl(var(--accent))]"
-                      )}
-                    >
-                      <div className={cn(
-                        "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
-                        done ? "bg-green-500/20 text-green-500" :
-                        item.id === current.id ? "gradient-bg text-white" :
-                        "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]"
-                      )}>
-                        {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : itemIcon(item.kind, "h-3.5 w-3.5")}
-                      </div>
-                      <p className={cn("flex-1 text-xs font-medium line-clamp-2", item.id === current.id && "text-[hsl(var(--primary))]")}>
-                        {item.title}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+            {tableOfContents}
           </div>
         )}
       </div>
+
+      {mobileTocOpen && (
+        <div className="lg:hidden">
+          <div
+            className="fixed inset-0 top-14 z-40 bg-black/50"
+            onClick={() => setMobileTocOpen(false)}
+            aria-hidden
+          />
+          <div className="fixed right-0 top-14 bottom-0 z-40 w-72 max-w-[85vw] flex flex-col bg-[hsl(var(--card))] border-l border-[hsl(var(--border))] shadow-xl">
+            {tableOfContents}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

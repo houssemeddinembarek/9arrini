@@ -76,7 +76,7 @@ export default function LoginForm() {
 
   return (
     <div className="w-full max-w-md">
-      <div className="glass rounded-2xl border border-[hsl(var(--border))] p-8 shadow-2xl">
+      <div className="glass rounded-2xl border border-[hsl(var(--border))] p-6 sm:p-8 shadow-2xl">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-2xl gradient-bg flex items-center justify-center mx-auto mb-4 shadow-lg">

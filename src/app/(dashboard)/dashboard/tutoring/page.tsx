@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Video, Loader2, CalendarDays, Clock, Users, Hourglass, CheckCircle2, XCircle, Search,
+  Video, Loader2, CalendarDays, Clock, Users, Hourglass, CheckCircle2, XCircle, Search, UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ interface ReqItem {
   _id: string;
   status: "pending" | "accepted" | "rejected";
   teacher?: { _id: string; name: string; avatar?: string };
+  // Which of the teacher's groups this reservation is for.
+  group?: { _id: string; name: string; subject?: string; level?: string };
 }
 interface Meeting {
   _id: string;
@@ -58,7 +60,7 @@ export default function DashboardTutoringPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Video className="h-6 w-6 text-[hsl(var(--primary))]" /> Tutorat
           </h1>
-          <p className="text-[hsl(var(--muted-foreground))] mt-1">Tes professeurs et leurs réunions à venir</p>
+          <p className="text-[hsl(var(--muted-foreground))] mt-1">Tes groupes réservés et les réunions à venir</p>
         </div>
         <Link href="/tutoring">
           <Button variant="outline"><Search className="h-4 w-4" /> Trouver un prof</Button>
@@ -80,15 +82,28 @@ export default function DashboardTutoringPage() {
             ) : (
               <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] divide-y divide-[hsl(var(--border))]">
                 {requests.map((r) => (
-                  <div key={r._id} className="flex items-center gap-3 p-3">
-                    <Avatar className="h-9 w-9"><AvatarImage src={r.teacher?.avatar} /><AvatarFallback className="text-xs">{getInitials(r.teacher?.name || "?")}</AvatarFallback></Avatar>
-                    <p className="flex-1 min-w-0 text-sm font-medium truncate">{r.teacher?.name}</p>
+                  <div key={r._id} className="flex flex-wrap items-center gap-3 p-3">
+                    <Avatar className="h-9 w-9 shrink-0"><AvatarImage src={r.teacher?.avatar} /><AvatarFallback className="text-xs">{getInitials(r.teacher?.name || "?")}</AvatarFallback></Avatar>
+                    <div className="flex-1 min-w-[8rem]">
+                      <Link
+                        href={r.teacher?._id ? `/tutoring/${r.teacher._id}` : "/tutoring"}
+                        className="text-sm font-medium truncate hover:text-[hsl(var(--primary))] transition-colors"
+                      >
+                        {r.teacher?.name}
+                      </Link>
+                      {r.group && (
+                        <p className="text-xs text-[hsl(var(--muted-foreground))] flex items-center gap-1 mt-0.5 truncate">
+                          <UsersRound className="h-3 w-3 shrink-0" />
+                          {r.group.name}{r.group.level ? ` · ${r.group.level}` : ""}
+                        </p>
+                      )}
+                    </div>
                     {r.status === "accepted" ? (
-                      <Badge variant="success" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Accepté</Badge>
+                      <Badge variant="success" className="gap-1 shrink-0 ml-auto"><CheckCircle2 className="h-3 w-3" /> Accepté</Badge>
                     ) : r.status === "pending" ? (
-                      <Badge variant="warning" className="gap-1"><Hourglass className="h-3 w-3" /> En attente</Badge>
+                      <Badge variant="warning" className="gap-1 shrink-0 ml-auto"><Hourglass className="h-3 w-3" /> En attente</Badge>
                     ) : (
-                      <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Refusé</Badge>
+                      <Badge variant="destructive" className="gap-1 shrink-0 ml-auto"><XCircle className="h-3 w-3" /> Refusé</Badge>
                     )}
                   </div>
                 ))}

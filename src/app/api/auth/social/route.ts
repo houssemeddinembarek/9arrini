@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { signToken } from "@/lib/jwt";
+import { getFreeSeanceSetting } from "@/lib/free-seances";
 import User from "@/models/User";
 import { z } from "zod";
 
@@ -41,7 +42,8 @@ export async function POST(request: NextRequest) {
     let user = await User.findOne({ email });
 
     if (!user) {
-      // First time: create a student account from the social profile.
+      // First time: create a student account from the social profile, with the
+      // free-séance grant in force today (see /api/auth/register).
       user = await User.create({
         name: decoded.name || email.split("@")[0],
         email,
@@ -50,6 +52,7 @@ export async function POST(request: NextRequest) {
         avatar: decoded.picture || "",
         role: "student",
         isApproved: true,
+        studentProfile: { freeSeancesAllowance: await getFreeSeanceSetting() },
       });
     } else if (!user.providerId) {
       // Existing local account with the same email — link the social identity.

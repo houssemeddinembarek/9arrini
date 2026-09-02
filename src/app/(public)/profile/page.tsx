@@ -601,14 +601,16 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <nav className="mt-5 space-y-1">
+            {/* Stacked list on desktop; a swipeable row on phones so the nav
+                doesn't push the content off the first screen. */}
+            <nav className="mt-5 flex lg:block gap-2 lg:gap-0 overflow-x-auto lg:overflow-visible lg:space-y-1 -mx-1 px-1 pb-1 lg:pb-0">
               {NAV.map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => setSection(id)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                    "shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 whitespace-nowrap px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
                     section === id
                       ? "gradient-bg text-white shadow-sm"
                       : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
@@ -710,9 +712,9 @@ export default function ProfilePage() {
                     {enrolledCourses.map((course) => (
                       <div
                         key={course.enrollmentId}
-                        className="flex items-center gap-4 p-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:shadow-md transition-all"
+                        className="flex flex-wrap items-center gap-3 sm:gap-4 p-4 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:shadow-md transition-all"
                       >
-                        <div className="relative w-20 h-14 rounded-xl overflow-hidden shrink-0 bg-[hsl(var(--muted))]">
+                        <div className="relative w-16 h-12 sm:w-20 sm:h-14 rounded-xl overflow-hidden shrink-0 bg-[hsl(var(--muted))]">
                           {course.thumbnail ? (
                             <Image src={course.thumbnail} alt={course.title} fill className="object-cover" />
                           ) : (
@@ -721,7 +723,7 @@ export default function ProfilePage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-[9rem]">
                           <h3 className="font-medium text-sm line-clamp-1 mb-1">{course.title}</h3>
                           <div className="flex items-center gap-2">
                             <Progress value={course.progress} className="flex-1 h-1.5" />
@@ -731,7 +733,7 @@ export default function ProfilePage() {
                             {course.completedLessons}/{course.totalLessons} {t.courses.lessons}
                           </p>
                         </div>
-                        <Link href={`/courses/${course.slug}/learn`}>
+                        <Link href={`/courses/${course.slug}/learn`} className="ml-auto shrink-0">
                           <Button size="sm" variant={course.progress >= 100 ? "outline" : "gradient"} className="shrink-0">
                             {course.progress >= 100 ? t.courses.review : t.courses.continue}
                           </Button>
@@ -894,7 +896,7 @@ export default function ProfilePage() {
             {section === "profile" && (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <h1 className="text-2xl font-bold">{t.form.title}</h1>
-                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 space-y-5">
+                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 sm:p-6 space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>{t.form.fullName}</Label>
@@ -1160,7 +1162,7 @@ export default function ProfilePage() {
 
             <TabsContent value="profile">
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 space-y-5">
+                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 sm:p-6 space-y-5">
                   <h2 className="font-semibold text-lg">Personal Information</h2>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1279,7 +1281,7 @@ export default function ProfilePage() {
                 {/* Teaching details (tutor card) */}
                 <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden">
                   {/* Header */}
-                  <div className="flex items-center gap-3 px-6 py-5 border-b border-[hsl(var(--border))] bg-gradient-to-r from-[hsl(var(--primary))]/8 via-transparent to-transparent">
+                  <div className="flex items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-[hsl(var(--border))] bg-gradient-to-r from-[hsl(var(--primary))]/8 via-transparent to-transparent">
                     <div className="w-11 h-11 rounded-xl gradient-bg flex items-center justify-center shadow-md shrink-0">
                       <BookOpenCheck className="h-5 w-5 text-white" />
                     </div>
@@ -1291,7 +1293,7 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  <div className="p-6 space-y-7">
+                  <div className="p-4 sm:p-6 space-y-7">
                     {/* Institution + headline */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
@@ -1475,7 +1477,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Checklist */}
-                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-6 space-y-5">
+                <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 sm:p-6 space-y-5">
                   <h2 className="font-semibold text-lg">Verification requirements</h2>
 
                   {/* Photo requirement */}
@@ -1556,13 +1558,13 @@ export default function ProfilePage() {
                   </div>
 
                   {vStatus !== "approved" && (
-                    <div className="flex items-center justify-between pt-2 border-t border-[hsl(var(--border))]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[hsl(var(--border))]">
                       <p className="text-xs text-[hsl(var(--muted-foreground))]">
                         {canSubmit
                           ? "Everything looks good — submit for review."
                           : "Complete your photo, documents and teaching details to submit."}
                       </p>
-                      <Button type="button" variant="gradient" onClick={submitForReview} disabled={!canSubmit || submitting} loading={submitting}>
+                      <Button type="button" variant="gradient" className="w-full sm:w-auto shrink-0" onClick={submitForReview} disabled={!canSubmit || submitting} loading={submitting}>
                         <ShieldCheck className="h-4 w-4" />
                         {vStatus === "rejected" ? "Resubmit" : "Submit for review"}
                       </Button>

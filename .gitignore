@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Curriculum corpus — the fetched PDFs are large binaries (100 MB+ already, and
+# every added exam year grows it). manifest.json and scripts/fetch-curriculum.mjs
+# are committed instead, so the whole tree rebuilds with `npm run curriculum:fetch`.
+/src/curriculum/**/*.pdf

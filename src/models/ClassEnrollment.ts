@@ -7,6 +7,9 @@ export interface IClassEnrollmentDocument extends Document {
   student: mongoose.Types.ObjectId;
   status: "pending" | "confirmed" | "rejected" | "cancelled";
   paymentReceived: boolean;
+  // Paid for with one of the student's free séances — nothing is owed, so the
+  // enrolment skips the payment-confirmation step.
+  isFree: boolean;
   confirmedAt?: Date;
 }
 
@@ -20,6 +23,7 @@ const ClassEnrollmentSchema = new Schema<IClassEnrollmentDocument>(
       default: "pending",
     },
     paymentReceived: { type: Boolean, default: false },
+    isFree: { type: Boolean, default: false },
     confirmedAt: { type: Date },
   },
   { timestamps: true }

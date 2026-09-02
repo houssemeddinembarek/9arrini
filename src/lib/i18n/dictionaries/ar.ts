@@ -45,6 +45,7 @@ const ar: Dictionary = {
       title: "أنشئ حسابك",
       subtitle: "انضمّ إلى Telmidhi",
       iAmA: "أنا…",
+      backToRoles: "اختر ملفًا آخر",
       fullName: "الاسم الكامل",
       fullNamePlaceholder: "اسمك ولقبك",
       email: "البريد الإلكتروني",

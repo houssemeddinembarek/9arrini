@@ -45,6 +45,7 @@ const en: Dictionary = {
       title: "Create your account",
       subtitle: "Join Telmidhi",
       iAmA: "I am a...",
+      backToRoles: "Choose a different profile",
       fullName: "Full name",
       fullNamePlaceholder: "Your full name",
       email: "Email address",

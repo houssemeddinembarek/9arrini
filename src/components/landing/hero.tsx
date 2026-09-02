@@ -1,9 +1,8 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
-import { ArrowRight, GraduationCap, Star, Users } from "lucide-react";
+import { ArrowRight, GraduationCap, Sparkles, Star, Users, Video } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
@@ -17,6 +16,7 @@ type SubjectKey =
   | "french";
 type StatKey = "students" | "teachers" | "groups" | "rating";
 
+// Shown inside the floating "pick a subject" card on the hero visual.
 const SUBJECTS: { emoji: string; key: SubjectKey }[] = [
   { emoji: "🧮", key: "maths" },
   { emoji: "⚛️", key: "physics" },
@@ -24,23 +24,21 @@ const SUBJECTS: { emoji: string; key: SubjectKey }[] = [
   { emoji: "🧬", key: "biology" },
   { emoji: "💻", key: "cs" },
   { emoji: "🇬🇧", key: "english" },
-  { emoji: "✍️", key: "french" },
 ];
 
 const STATS: { value: string; key: StatKey }[] = [
   { value: "500+", key: "students" },
   { value: "80+", key: "teachers" },
   { value: "120+", key: "groups" },
-  { value: "4.9★", key: "rating" },
+  { value: "4.9", key: "rating" },
 ];
 
-// Avatars for the mock live-class card.
 const GROUP = [
-  { letter: "A", hue: 270 },
-  { letter: "M", hue: 320 },
+  { letter: "A", hue: 243 },
+  { letter: "M", hue: 268 },
   { letter: "S", hue: 200 },
-  { letter: "Y", hue: 160 },
-  { letter: "I", hue: 30 },
+  { letter: "Y", hue: 162 },
+  { letter: "I", hue: 26 },
 ];
 
 export function Hero() {
@@ -49,166 +47,171 @@ export function Hero() {
   const t = dict.hero;
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden pt-16">
-      {/* Background */}
-      <div className="absolute inset-0 mesh-gradient" />
+    <section className="relative overflow-hidden pt-28 pb-4 sm:pt-32">
+      {/* Backdrop: one soft brand wash + a faint dot grid that fades out.
+          No blobs, no glass — the copy carries the page. */}
+      <div className="absolute inset-0 -z-10 mesh-gradient" aria-hidden />
+      <div className="absolute inset-0 -z-10 bg-dotted bg-fade-b opacity-60" aria-hidden />
 
-      {/* Real-classroom photo, kept soft so the copy stays readable */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <Image
-          src="/decoration/hero-classroom.jpg"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center opacity-25 dark:opacity-15"
-        />
-        {/* <div className="absolute inset-0 bg-gradient-to-b from-[hsl(var(--background))]/70 via-[hsl(var(--background))]/85 to-[hsl(var(--background))]" /> */}
-      </div>
+      <div className="container-page">
+        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-10">
+          {/* ── Copy ───────────────────────────────────────────────────── */}
+          <div className="reveal text-center lg:col-span-6 lg:text-start">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-muted-foreground shadow-[var(--shadow-xs)]">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+              </span>
+              {t.badge}
+            </span>
 
-      <div className="absolute top-10 -left-10 w-80 h-80 bg-purple-500/25 rounded-full blur-3xl animate-blob" />
-      <div
-        className="absolute bottom-0 right-0 w-[28rem] h-[28rem] bg-blue-500/20 rounded-full blur-3xl animate-blob"
-        style={{ animationDelay: "3s" }}
-      />
-      <div
-        className="absolute top-1/3 right-1/4 w-72 h-72 bg-pink-500/15 rounded-full blur-3xl animate-blob"
-        style={{ animationDelay: "6s" }}
-      />
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 w-full">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-          {/* ── Left: copy ── */}
-          <div className="text-center lg:text-left">
-            <div className="flex justify-center lg:justify-start mb-6">
-              <Badge
-                variant="purple"
-                className="px-4 py-2 text-sm font-semibold rounded-full border border-purple-200 dark:border-purple-800 cursor-pointer hover:scale-105 transition-transform"
-              >
-                {/* <Sparkles className="h-3.5 w-3.5 mr-2" /> */}
-                {t.badge}
-              </Badge>
-            </div>
-
-            <h1 className="text-5xl sm:text-6xl lg:text-[4.2rem] font-extrabold tracking-tight mb-6 leading-[1.05] text-right">
+            <h1 className="display mt-6">
               {t.titleBefore}{" "}
-              <span className="gradient-text animate-gradient-x bg-[linear-gradient(135deg,#7c3aed,#2563eb,#06b6d4,#ec4899)]">
-                {t.titleHighlight}
-              </span>{" "}
-              
+              <span className="underline-sketch accent-word">{t.titleHighlight}</span>
             </h1>
 
-            <p className="text-lg sm:text-xl text-[hsl(var(--muted-foreground))] max-w-xl mx-auto lg:mx-0 mb-8 leading-relaxed">
+            <p className="lead mx-auto mt-5 max-w-xl lg:mx-0">
               {t.subtitlePre}{" "}
-              <span className="font-semibold text-[hsl(var(--foreground))]">
-                {t.subtitleGroup}
-              </span>{" "}
+              <strong className="font-semibold text-foreground">{t.subtitleGroup}</strong>{" "}
               {t.subtitleMid}
-              <span className="font-semibold text-[hsl(var(--foreground))]">
-                {" "}
-                {t.subtitleAI}
-              </span>
+              <strong className="font-semibold text-foreground"> {t.subtitleAI}</strong>
               {t.subtitlePost}
             </p>
 
-            {/* Subject chips */}
-            <div className="flex flex-wrap gap-2 justify-center lg:justify-start mb-8">
-              {SUBJECTS.map((s) => (
-                <span
-                  key={s.key}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-sm hover:scale-105 hover:border-purple-300 transition-all cursor-default"
-                >
-                  <span className="text-base">{s.emoji}</span>
-                  {t.subjects[s.key]}
-                </span>
-              ))}
-            </div>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 mb-8">
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
               <Button
                 size="xl"
-                variant="gradient"
-                className="w-full sm:w-auto shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50 hover:-translate-y-0.5 transition-all"
+                className="w-full sm:w-auto"
                 onClick={() => router.push("/register?role=student")}
               >
-                <GraduationCap className="h-5 w-5" />
+                <GraduationCap />
                 {t.ctaStudent}
-                <ArrowRight className="h-5 w-5" />
+                <ArrowRight className="rtl:rotate-180" />
               </Button>
               <Button
                 size="xl"
                 variant="outline"
-                className="w-full sm:w-auto hover:-translate-y-0.5 transition-all"
+                className="w-full sm:w-auto"
                 onClick={() => router.push("/register?role=teacher")}
               >
-                <Users className="h-5 w-5" />
+                <Users />
                 {t.ctaTeacher}
               </Button>
             </div>
 
-            {/* Social proof */}
-            <div className="flex items-center justify-center lg:justify-start gap-3 flex-wrap">
-              <div className="flex -space-x-2">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 lg:justify-start">
+              <div className="flex -space-x-2 rtl:space-x-reverse">
                 {GROUP.map((g, i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full border-2 border-[hsl(var(--background))] flex items-center justify-center text-white text-xs font-bold"
-                    style={{
-                      background: `hsl(${g.hue}, 70%, 55%)`,
-                      zIndex: 5 - i,
-                    }}
+                  <span
+                    key={g.letter}
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold text-white ring-2 ring-background"
+                    style={{ background: `hsl(${g.hue} 62% 52%)`, zIndex: GROUP.length - i }}
                   >
                     {g.letter}
-                  </div>
+                  </span>
                 ))}
               </div>
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star
-                    key={s}
-                    className="h-4 w-4 fill-amber-400 text-amber-400"
-                  />
+              <span className="flex items-center gap-0.5">
+                {[0, 1, 2, 3, 4].map((s) => (
+                  <Star key={s} className="h-3.5 w-3.5 fill-[hsl(var(--warning))] text-[hsl(var(--warning))]" />
                 ))}
-              </div>
-              <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                <strong className="text-[hsl(var(--foreground))]">
-                  {t.socialProofStrong}
-                </strong>{" "}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                <strong className="font-semibold text-foreground">{t.socialProofStrong}</strong>{" "}
                 {t.socialProofRest}
               </span>
             </div>
           </div>
 
-          {/* ── Right: hero illustration ── */}
-          <div className="relative mx-auto w-full max-w-md lg:max-w-xl aspect-square">
-            <Image
-              src="/decoration/student.png"
-              alt="Élèves Telmidhi"
-              fill
-              priority
-              sizes="(max-width: 1024px) 28rem, 36rem"
-              className="object-contain"
-            />
+          {/* ── Visual: a product glimpse, not a floating mascot ────────── */}
+          <div className="reveal relative lg:col-span-6" style={{ "--reveal-delay": "120ms" } as React.CSSProperties}>
+            <div className="relative mx-auto aspect-[4/3.4] w-full max-w-lg">
+              {/* Panel */}
+              <div className="absolute inset-0 overflow-hidden rounded-[2rem] border border-border bg-gradient-to-b from-primary-soft to-card shadow-[var(--shadow-lg)]">
+                <Image
+                  src="/decoration/student.png"
+                  alt=""
+                  fill
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 32rem"
+                  className="object-contain object-bottom p-4"
+                />
+              </div>
+
+              {/* Live-session proof card */}
+              <div className="absolute -start-3 top-8 hidden w-[13.5rem] sm:block rounded-2xl border border-border bg-card/95 p-3.5 shadow-[var(--shadow-lg)] backdrop-blur sm:-start-8">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Video className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold">{t.subjects.maths}</p>
+                    <p className="text-[11px] text-muted-foreground">3–8 {t.stats.students.toLowerCase()}</p>
+                  </div>
+                  <span className="ms-auto flex items-center gap-1 rounded-full bg-[hsl(var(--success)/0.12)] px-2 py-0.5 text-[10px] font-semibold text-[hsl(var(--success))]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--success))]" />
+                    Live
+                  </span>
+                </div>
+                <div className="mt-3 flex -space-x-1.5 rtl:space-x-reverse">
+                  {GROUP.slice(0, 4).map((g) => (
+                    <span
+                      key={g.letter}
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-card"
+                      style={{ background: `hsl(${g.hue} 62% 52%)` }}
+                    >
+                      {g.letter}
+                    </span>
+                  ))}
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground ring-2 ring-card">
+                    +2
+                  </span>
+                </div>
+              </div>
+
+              {/* Subject picker card */}
+              <div className="absolute -end-2 bottom-16 hidden w-[12rem] sm:block rounded-2xl border border-border bg-card/95 p-3 shadow-[var(--shadow-lg)] backdrop-blur sm:-end-6">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {dict.nav.cours}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUBJECTS.map((s) => (
+                    <span
+                      key={s.key}
+                      className="inline-flex items-center gap-1 rounded-lg bg-muted px-2 py-1 text-[11px] font-medium"
+                    >
+                      <span>{s.emoji}</span>
+                      {t.subjects[s.key]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI chip */}
+              <div className="absolute -bottom-2 start-6 flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-[var(--shadow-md)] sm:start-10">
+                <Sparkles className="h-3.5 w-3.5 text-[hsl(var(--brand-warm))]" />
+                <span className="text-xs font-semibold">Aria&nbsp;IA</span>
+                <span className="text-[11px] text-muted-foreground">24/7</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Stats strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto mt-16">
+        {/* ── Stat strip: hairline dividers instead of four floating tiles ── */}
+        <dl className="mt-16 grid grid-cols-2 divide-border rounded-2xl border border-border bg-card/60 sm:mt-20 sm:grid-cols-4 sm:divide-x sm:rtl:divide-x-reverse">
           {STATS.map(({ value, key }) => (
-            <div
-              key={key}
-              className="glass rounded-2xl p-4 text-center hover:scale-105 transition-transform cursor-default"
-            >
-              <div className="text-2xl sm:text-3xl font-extrabold gradient-text">
+            <div key={key} className="px-5 py-5 text-center">
+              <dt className="sr-only">{t.stats[key]}</dt>
+              <dd className="text-2xl font-bold tracking-tight sm:text-3xl">
                 {value}
-              </div>
-              <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                {t.stats[key]}
-              </div>
+                {key === "rating" && (
+                  <Star className="mb-1 ms-1 inline h-4 w-4 fill-[hsl(var(--warning))] text-[hsl(var(--warning))]" />
+                )}
+              </dd>
+              <p className="mt-1 text-xs text-muted-foreground">{t.stats[key]}</p>
             </div>
           ))}
-        </div>
+        </dl>
       </div>
     </section>
   );
